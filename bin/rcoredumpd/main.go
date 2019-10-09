@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"io"
@@ -8,6 +9,8 @@ import (
 	"log"
 	"net"
 	"os"
+
+	"github.com/elwinar/rcoredump"
 )
 
 func main() {
@@ -44,26 +47,39 @@ func main() {
 			continue
 		}
 
-		// Create a temporary file to dump the connection's content in.
-		f, err := ioutil.TempFile(cfg.dir, "*.gz")
-		if err != nil {
-			conn.Close()
-			log.Println(err)
-			continue
-		}
+		// Handle the connection.
+		func() {
+			// Read the header struct.
+			var header rcoredump.Header
+			err := json.NewDecoder(conn).Decode(&header)
+			if err != nil {
+				log.Println(err)
+				return
+			}
 
-		// Do the actual dumping.
-		n, err := io.Copy(f, conn)
-		if err != nil {
-			conn.Close()
-			log.Println(err)
-			continue
-		}
+			log.Println("receiving dump for", header.Executable, "from", header.Hostname, "at", header.Date.String())
 
-		log.Println("received", n, "bytes from", conn.RemoteAddr().String(), "in", f.Name())
+			// Create a temporary file to dump the connection's
+			// content in.
+			f, err := ioutil.TempFile(cfg.dir, "*.gz")
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			defer f.Close()
 
+			// Do the actual dumping.
+			n, err := io.Copy(f, conn)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			log.Println("received", n, "bytes in", f.Name())
+		}()
+
+		// Close it.
 		conn.Close()
-		f.Close()
 	}
 
 	// All done, k-thx-bye.
