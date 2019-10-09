@@ -16,7 +16,7 @@ func main() {
 		dir  string
 	}
 	flag.StringVar(&cfg.bind, "bind", "localhost:1105", "address to listen to")
-	flag.StringVar(&cfg.dir, "dir", "/var/rcoredumpd/", "path of the directory to store the coredumps into")
+	flag.StringVar(&cfg.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
 	flag.Parse()
 
 	// Ensure the output directory exists.
