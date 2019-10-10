@@ -1,16 +1,20 @@
 package main
 
 import (
+	"bufio"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/elwinar/rcoredump"
+	"github.com/rs/xid"
 )
 
 func main() {
@@ -40,46 +44,97 @@ func main() {
 	log.Println("listening")
 
 	for {
-		// Accept a connection.
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Println(err)
-			continue
-		}
 
 		// Handle the connection.
 		func() {
+			// Accept a connection.
+			conn, err := listener.Accept()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			defer conn.Close()
+
+			// Generate an UniqueID for this dump.
+			uid := xid.New().String()
+			log.Println("receiving dump", uid)
+
+			// Uncompress the streams on the fly.
+			bconn := bufio.NewReader(conn)
+			zr, err := gzip.NewReader(bconn)
+			if err != nil {
+				log.Println("creating gzip reader")
+				return
+			}
+			defer zr.Close()
+
 			// Read the header struct.
+			log.Println("reading header")
+			zr.Multistream(false)
 			var header rcoredump.Header
-			err := json.NewDecoder(conn).Decode(&header)
+			err = json.NewDecoder(zr).Decode(&header)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 
-			log.Println("receiving dump for", header.Executable, "from", header.Hostname, "at", header.Date.String())
-
-			// Create a temporary file to dump the connection's
-			// content in.
-			f, err := ioutil.TempFile(cfg.dir, "*.gz")
+			f, err := os.Create(filepath.Join(cfg.dir, fmt.Sprintf("%s.json", uid)))
 			if err != nil {
 				log.Println(err)
 				return
 			}
 			defer f.Close()
 
-			// Do the actual dumping.
-			n, err := io.Copy(f, conn)
+			err = json.NewEncoder(f).Encode(header)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 
-			log.Println("received", n, "bytes in", f.Name())
-		}()
+			// Read the core dump.
+			log.Println("reading core")
+			err = zr.Reset(bconn)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			zr.Multistream(false)
 
-		// Close it.
-		conn.Close()
+			f, err = os.Create(filepath.Join(cfg.dir, fmt.Sprintf("%s.core", uid)))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			defer f.Close()
+
+			_, err = io.Copy(f, zr)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			// Read the binary file.
+			log.Println("reading bin")
+			err = zr.Reset(bconn)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			zr.Multistream(false)
+
+			f, err = os.Create(filepath.Join(cfg.dir, fmt.Sprintf("%s.bin", uid)))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			defer f.Close()
+
+			_, err = io.Copy(f, zr)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}()
 	}
 
 	// All done, k-thx-bye.

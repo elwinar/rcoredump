@@ -19,10 +19,21 @@ func main() {
 	var cfg struct {
 		dest string
 		src  string
+		log  string
 	}
 	flag.StringVar(&cfg.dest, "dest", "localhost:1105", "address of the destination host")
 	flag.StringVar(&cfg.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
+	flag.StringVar(&cfg.log, "log", "/var/log/rcoredump.log", "path of the log file for rcoredump")
 	flag.Parse()
+
+	// Open the log file.
+	l, err := os.OpenFile(cfg.log, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer l.Close()
+	log.SetOutput(l)
 
 	// Gather a few variables.
 	// Args from the command line should be, in order:
@@ -32,7 +43,7 @@ func main() {
 	args := flag.Args()
 	if len(args) != 3 {
 		log.Println("unexpected number of arguments on command-line")
-		os.Exit(1)
+		return
 	}
 
 	// Pathname of the executable comes up with ! instead of /.
@@ -40,53 +51,80 @@ func main() {
 	timestamp, err := strconv.ParseInt(args[1], 10, 64)
 	if err != nil {
 		log.Println("invalid timestamp format")
-		os.Exit(1)
+		return
 	}
 	hostname := args[2]
 
 	// Open the connection to the backend.
 	conn, err := net.Dial("tcp", cfg.dest)
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Println("dialing tcp:", err)
+		return
 	}
 	defer conn.Close()
 
-	// Find the input data, either stdin or a file, and get a reader for
-	// it.
+	// Compress the data before sending it.
+	w := gzip.NewWriter(conn)
+	defer w.Close()
+
+	// Send the header first.
+	err = json.NewEncoder(w).Encode(rcoredump.Header{
+		Executable: executable,
+		Date:       time.Unix(timestamp, 0),
+		Hostname:   hostname,
+	})
+	if err != nil {
+		log.Println("writing header:", err)
+		return
+	}
+	err = w.Close()
+	if err != nil {
+		log.Println("closing header stream:", err)
+		return
+	}
+	w.Reset(conn)
+
+	// Then the core itself.
 	var in io.ReadCloser
 	if cfg.src == "-" {
 		in = os.Stdin
 	} else {
 		in, err = os.Open(cfg.src)
 		if err != nil {
-			log.Println(err)
-			os.Exit(1)
+			log.Println("opening core file:", err)
+			return
 		}
 		defer in.Close()
 	}
-
-	err = json.NewEncoder(conn).Encode(rcoredump.Header{
-		Executable: executable,
-		Date:       time.Unix(timestamp, 0),
-		Hostname:   hostname,
-	})
+	_, err = io.Copy(w, in)
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Println("writing core:", err)
+		return
 	}
-
-	// Compress the data before sending it.
-	w := gzip.NewWriter(conn)
-	defer w.Close()
-
-	// Send the input data to in the stream.
-	n, err := io.Copy(w, in)
+	err = w.Close()
 	if err != nil {
-		log.Println(err)
-		os.Exit(1)
+		log.Println("closing core stream:", err)
+		return
+	}
+	w.Reset(conn)
+
+	// Then the binary.
+	bin, err := os.Open(executable)
+	if err != nil {
+		log.Println("opening bin file:", err)
+		return
+	}
+	defer in.Close()
+	_, err = io.Copy(w, bin)
+	if err != nil {
+		log.Println("writing bin:", err)
+		return
+	}
+	err = w.Close()
+	if err != nil {
+		log.Println("closing bin stream:", err)
+		return
 	}
 
 	// All done, k-thx-bye.
-	log.Println("sent", n, "bytes to", conn.RemoteAddr().String())
 }
