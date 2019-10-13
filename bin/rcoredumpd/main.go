@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/elwinar/rcoredump"
+	"github.com/elwinar/rcoredump/conf"
 	"github.com/rs/xid"
 )
 
@@ -22,13 +23,19 @@ func main() {
 		bind string
 		dir  string
 	}
-	flag.StringVar(&cfg.bind, "bind", "localhost:1105", "address to listen to")
-	flag.StringVar(&cfg.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
-	flag.Parse()
+	fs := flag.NewFlagSet("rcoredumpd", flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage of rcoredumpd:")
+		fs.PrintDefaults()
+	}
+	fs.StringVar(&cfg.bind, "bind", "localhost:1105", "address to listen to")
+	fs.StringVar(&cfg.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
+	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
+	conf.Parse(fs, "conf")
 
 	// Ensure the output directory exists.
 	err := os.Mkdir(cfg.dir, os.ModeDir)
-	if !errors.Is(err, os.ErrExist) {
+	if err != nil && !errors.Is(err, os.ErrExist) {
 		log.Println(err)
 		os.Exit(1)
 	}
@@ -44,7 +51,6 @@ func main() {
 	log.Println("listening")
 
 	for {
-
 		// Handle the connection.
 		func() {
 			// Accept a connection.

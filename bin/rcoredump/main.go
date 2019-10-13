@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/elwinar/rcoredump"
+	"github.com/elwinar/rcoredump/conf"
 )
 
 func main() {
@@ -21,10 +23,16 @@ func main() {
 		src  string
 		log  string
 	}
-	flag.StringVar(&cfg.dest, "dest", "localhost:1105", "address of the destination host")
-	flag.StringVar(&cfg.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
-	flag.StringVar(&cfg.log, "log", "/var/log/rcoredump.log", "path of the log file for rcoredump")
-	flag.Parse()
+	fs := flag.NewFlagSet("rcoredump", flag.ExitOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage of rcoredump: rcoredump [options] <executable path> <timestamp of dump>")
+		fs.PrintDefaults()
+	}
+	fs.StringVar(&cfg.dest, "dest", "localhost:1105", "address of the destination host")
+	fs.StringVar(&cfg.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
+	fs.StringVar(&cfg.log, "log", "/var/log/rcoredump.log", "path of the log file for rcoredump")
+	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
+	conf.Parse(fs, "conf")
 
 	// Open the log file.
 	l, err := os.OpenFile(cfg.log, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
@@ -39,9 +47,8 @@ func main() {
 	// Args from the command line should be, in order:
 	// - %E, pathname of executable
 	// - %t, time of dump
-	// - %h, hostname
-	args := flag.Args()
-	if len(args) != 3 {
+	args := fs.Args()
+	if len(args) != 2 {
 		log.Println("unexpected number of arguments on command-line")
 		return
 	}
@@ -53,7 +60,7 @@ func main() {
 		log.Println("invalid timestamp format")
 		return
 	}
-	hostname := args[2]
+	hostname, _ := os.Hostname()
 
 	// Open the connection to the backend.
 	conn, err := net.Dial("tcp", cfg.dest)
