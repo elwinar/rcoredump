@@ -20,6 +20,8 @@ import (
 	"github.com/elwinar/rcoredump"
 	"github.com/elwinar/rcoredump/conf"
 	"github.com/julienschmidt/httprouter"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/xid"
 )
 
@@ -48,7 +50,8 @@ type service struct {
 	bind string
 	dir  string
 
-	router *httprouter.Router
+	received *prometheus.CounterVec
+	router   *httprouter.Router
 }
 
 func (s *service) configure() {
@@ -69,9 +72,16 @@ func (s *service) init() error {
 		return err
 	}
 
+	s.received = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "rcoredumpd_received_total",
+		Help: "number of core dump received",
+	}, []string{"hostname", "executable"})
+	prometheus.MustRegister(s.received)
+
 	s.router = httprouter.New()
 	s.router.GET("/", s.home)
 	s.router.POST("/core", s.receive)
+	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
 
 	return nil
 }
@@ -182,4 +192,9 @@ func (s *service) receive(w http.ResponseWriter, r *http.Request, _ httprouter.P
 		log.Println(err)
 		return
 	}
+
+	s.received.With(prometheus.Labels{
+		"hostname":   header.Hostname,
+		"executable": header.Executable,
+	}).Inc()
 }
