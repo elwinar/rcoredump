@@ -17,6 +17,7 @@ import (
 
 	"github.com/elwinar/rcoredump"
 	"github.com/elwinar/rcoredump/conf"
+	"github.com/inconshreveable/log15"
 )
 
 func main() {
@@ -43,9 +44,10 @@ func main() {
 type service struct {
 	dest string
 	src  string
-	log  string
 
 	args []string
+
+	logger log15.Logger
 }
 
 func (s *service) configure() {
@@ -56,7 +58,6 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.dest, "dest", "http://localhost:1105", "address of the destination host")
 	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
-	fs.StringVar(&s.log, "log", "/var/log/rcoredump.log", "path of the log file for rcoredump")
 	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 
@@ -64,13 +65,8 @@ func (s *service) configure() {
 }
 
 func (s *service) init() error {
-	// Open the log file.
-	l, err := os.OpenFile(s.log, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return err
-	}
-	defer l.Close()
-	log.SetOutput(l)
+	s.logger = log15.New()
+	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
 
 	return nil
 }
@@ -81,7 +77,7 @@ func (s *service) run(ctx context.Context) {
 	// - %E, pathname of executable
 	// - %t, time of dump
 	if len(s.args) != 2 {
-		log.Println("unexpected number of arguments on command-line")
+		s.logger.Error("unexpected number of arguments on command-line", "want", 2, "got", len(s.args))
 		return
 	}
 
@@ -89,7 +85,7 @@ func (s *service) run(ctx context.Context) {
 	executable := strings.Replace(s.args[0], "!", "/", -1)
 	timestamp, err := strconv.ParseInt(s.args[1], 10, 64)
 	if err != nil {
-		log.Println("invalid timestamp format")
+		s.logger.Error("invalid timestamp format", "err", err)
 		return
 	}
 	hostname, _ := os.Hostname()
@@ -110,12 +106,12 @@ func (s *service) run(ctx context.Context) {
 			Hostname:   hostname,
 		})
 		if err != nil {
-			log.Println("writing header:", err)
+			s.logger.Error("writing header", "err", err)
 			return
 		}
 		err = w.Close()
 		if err != nil {
-			log.Println("closing header stream:", err)
+			s.logger.Error("closing header stream", "err", err)
 			return
 		}
 		w.Reset(pw)
@@ -127,19 +123,19 @@ func (s *service) run(ctx context.Context) {
 		} else {
 			in, err = os.Open(s.src)
 			if err != nil {
-				log.Println("opening core file:", err)
+				s.logger.Error("opening core file", "err", err)
 				return
 			}
 			defer in.Close()
 		}
 		_, err = io.Copy(w, in)
 		if err != nil {
-			log.Println("writing core:", err)
+			s.logger.Error("writing core", "err", err)
 			return
 		}
 		err = w.Close()
 		if err != nil {
-			log.Println("closing core stream:", err)
+			s.logger.Error("closing core stream", "err", err)
 			return
 		}
 		w.Reset(pw)
@@ -147,30 +143,31 @@ func (s *service) run(ctx context.Context) {
 		// Then the binary.
 		bin, err := os.Open(executable)
 		if err != nil {
-			log.Println("opening bin file:", err)
+			s.logger.Error("opening bin file", "err", err)
 			return
 		}
 		defer in.Close()
 		_, err = io.Copy(w, bin)
 		if err != nil {
-			log.Println("writing bin:", err)
+			s.logger.Error("writing bin", "err", err)
 			return
 		}
 		err = w.Close()
 		if err != nil {
-			log.Println("closing bin stream:", err)
+			s.logger.Error("closing bin stream", "err", err)
 			return
 		}
 	}()
 
 	res, err := http.Post(fmt.Sprintf("%s/core", s.dest), "application/octet-stream", pr)
 	if err != nil {
-		log.Println("sending core:", err)
+		s.logger.Error("sending core", "err", err)
+		return
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		log.Println("unexpected status:", res.Status)
+		s.logger.Error("unexpected status", "err", err)
 		return
 	}
 

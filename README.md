@@ -34,8 +34,6 @@ Usage of rcoredump: rcoredump [options] <executable path> <timestamp of dump>
         configuration file to load (default "/etc/rcoredump/rcoredump.conf")
   -dest string
         address of the destination host (default "localhost:1105")
-  -log string
-        path of the log file for rcoredump (default "/var/log/rcoredump.log")
   -src string
         path of the coredump to send to the host ('-' for stdin) (default "-")
 ```
@@ -44,3 +42,7 @@ On linux, you can use sysctl's `kernel.core_pattern` tunable to have the kernel
 invoke _rcoredump_ everytime a dump is generated. For example:
 `kernel.core_pattern=|rcoredump %E %t`.
 
+## Logging
+
+All logging is done on stdout using the _logfmt_ format. This output can be
+redirected easily enough using various utilities, like `logger` for syslog.

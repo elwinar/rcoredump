@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/elwinar/rcoredump"
 	"github.com/elwinar/rcoredump/conf"
+	"github.com/inconshreveable/log15"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -31,7 +31,7 @@ func main() {
 
 	err := s.init()
 	if err != nil {
-		log.Println(err)
+		s.logger.Crit("initializing", "err", err)
 		os.Exit(1)
 	}
 
@@ -47,9 +47,12 @@ func main() {
 }
 
 type service struct {
-	bind string
-	dir  string
+	bind    string
+	dir     string
+	log     string
+	logfile string
 
+	logger   log15.Logger
 	received *prometheus.CounterVec
 	router   *httprouter.Router
 }
@@ -66,8 +69,11 @@ func (s *service) configure() {
 	conf.Parse(fs, "conf")
 }
 
-func (s *service) init() error {
-	err := os.Mkdir(s.dir, os.ModeDir)
+func (s *service) init() (err error) {
+	s.logger = log15.New()
+	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
+
+	err = os.Mkdir(s.dir, os.ModeDir)
 	if err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
@@ -100,7 +106,7 @@ func (s *service) run(ctx context.Context) {
 
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Println("closing server:", err)
+		s.logger.Error("closing server", "err", err)
 	}
 }
 
@@ -115,81 +121,79 @@ func (s *service) receive(w http.ResponseWriter, r *http.Request, _ httprouter.P
 	}()
 
 	uid := xid.New().String()
-	log.Println("receiving dump", uid)
+	log := s.logger.New("uid", uid)
+	log.Info("receiving dump")
 
 	// Uncompress the streams on the fly.
-	bconn := bufio.NewReader(r.Body)
-	zr, err := gzip.NewReader(bconn)
+	body := bufio.NewReader(r.Body)
+	zr, err := gzip.NewReader(body)
 	if err != nil {
-		log.Println("creating gzip reader")
+		log.Error("creating gzip reader", "err", err)
 		return
 	}
 	defer zr.Close()
 
 	// Read the header struct.
-	log.Println("reading header")
 	zr.Multistream(false)
 	var header rcoredump.Header
 	err = json.NewDecoder(zr).Decode(&header)
 	if err != nil {
-		log.Println(err)
+		log.Error("decoding header", "err", err)
 		return
 	}
 
 	f, err := os.Create(filepath.Join(s.dir, fmt.Sprintf("%s.json", uid)))
 	if err != nil {
-		log.Println(err)
+		log.Error("creating header file", "err", err)
 		return
 	}
 	defer f.Close()
 
 	err = json.NewEncoder(f).Encode(header)
 	if err != nil {
-		log.Println(err)
+		log.Error("encoding header file", "err", err)
 		return
 	}
 
 	// Read the core dump.
-	log.Println("reading core")
-	err = zr.Reset(bconn)
+	err = zr.Reset(body)
 	if err != nil {
-		log.Println(err)
+		log.Error("reseting reader", "err", err)
 		return
 	}
 	zr.Multistream(false)
 
 	f, err = os.Create(filepath.Join(s.dir, fmt.Sprintf("%s.core", uid)))
 	if err != nil {
-		log.Println(err)
+		log.Error("creating core file", "err", err)
 		return
 	}
 	defer f.Close()
 
 	_, err = io.Copy(f, zr)
 	if err != nil {
-		log.Println(err)
+		log.Error("writing core file", "err", err)
 		return
 	}
 
 	// Read the binary file.
-	log.Println("reading bin")
-	err = zr.Reset(bconn)
+	err = zr.Reset(body)
 	if err != nil {
-		log.Println(err)
+		log.Error("reseting reader", "err", err)
 		return
 	}
 	zr.Multistream(false)
 
 	f, err = os.Create(filepath.Join(s.dir, fmt.Sprintf("%s.bin", uid)))
 	if err != nil {
-		log.Println(err)
+		log.Error("creating binary file", "err", err)
 		return
 	}
 	defer f.Close()
 
 	_, err = io.Copy(f, zr)
 	if err != nil {
-		log.Println(err)
+		log.Error("writing binary file", "err", err)
 		return
 	}
 
