@@ -159,7 +159,7 @@ func (s *service) run(ctx context.Context) {
 		}
 	}()
 
-	res, err := http.Post(fmt.Sprintf("%s/core", s.dest), "application/octet-stream", pr)
+	res, err := http.Post(fmt.Sprintf("%s/_index", s.dest), "application/octet-stream", pr)
 	if err != nil {
 		s.logger.Error("sending core", "err", err)
 		return

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/blevesearch/bleve"
 	"github.com/elwinar/rcoredump"
 	"github.com/elwinar/rcoredump/conf"
 	"github.com/inconshreveable/log15"
@@ -55,6 +56,7 @@ type service struct {
 	logger   log15.Logger
 	received *prometheus.CounterVec
 	router   *httprouter.Router
+	index    bleve.Index
 }
 
 func (s *service) configure() {
@@ -70,24 +72,45 @@ func (s *service) configure() {
 }
 
 func (s *service) init() (err error) {
+	// Logger
 	s.logger = log15.New()
 	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
 
-	err = os.Mkdir(s.dir, os.ModeDir)
+	// Data dir
+	err = os.Mkdir(s.dir, os.ModeDir|0776)
 	if err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
 
+	// Prometheus metrics
 	s.received = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "rcoredumpd_received_total",
 		Help: "number of core dump received",
 	}, []string{"hostname", "executable"})
 	prometheus.MustRegister(s.received)
 
+	// API Routes
 	s.router = httprouter.New()
 	s.router.GET("/", s.home)
-	s.router.POST("/core", s.receive)
+	s.router.POST("/_index", s._index)
+	s.router.GET("/_search", s._search)
 	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
+
+	// Fulltext Index
+	indexPath := filepath.Join(s.dir, "index")
+	_, err = os.Stat(indexPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if errors.Is(err, os.ErrNotExist) {
+		s.index, err = bleve.New(indexPath, bleve.NewIndexMapping())
+	} else {
+		s.index, err = bleve.Open(indexPath)
+	}
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -114,7 +137,7 @@ func (s *service) home(w http.ResponseWriter, _ *http.Request, _ httprouter.Para
 	w.Write([]byte(`rcoredumpd`))
 }
 
-func (s *service) receive(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *service) _index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	defer func() {
 		io.Copy(ioutil.Discard, r.Body)
 		r.Body.Close()
@@ -197,8 +220,39 @@ func (s *service) receive(w http.ResponseWriter, r *http.Request, _ httprouter.P
 		return
 	}
 
+	// Index the new core
+	err = s.index.Index(uid, header)
+	if err != nil {
+		log.Error("indexing core", "err", err)
+		return
+	}
+
 	s.received.With(prometheus.Labels{
 		"hostname":   header.Hostname,
 		"executable": header.Executable,
 	}).Inc()
+}
+
+func (s *service) _search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	qs := r.FormValue("q")
+	q := bleve.NewQueryStringQuery(qs)
+	req := bleve.NewSearchRequest(q)
+	req.Fields = []string{"*"}
+
+	res, err := s.index.Search(req)
+	if err != nil {
+		write(w, http.StatusBadRequest, struct{ Error string }{Error: err.Error()})
+		return
+	}
+
+	write(w, http.StatusOK, res)
+}
+
+func write(w http.ResponseWriter, status int, payload interface{}) {
+	w.WriteHeader(status)
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		panic(err)
+	}
+	_, _ = w.Write(raw)
 }
