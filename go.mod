@@ -14,6 +14,7 @@ require (
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/prometheus/client_golang v1.2.1
+	github.com/prometheus/common v0.7.0
 	github.com/rs/xid v1.2.1
 	github.com/steveyen/gtreap v0.0.0-20150807155958-0abe01ef9be2 // indirect
 )
