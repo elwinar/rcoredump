@@ -4,7 +4,7 @@ bin_dir = $(root)/bin
 web_build_dir = $(root)/web/build
 
 .PHONY: build
-build: rcoredumpd rcoredump web monkey
+build: web rcoredumpd rcoredump monkey
 
 .PHONY: web
 web:
