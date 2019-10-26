@@ -7,10 +7,10 @@ web_build_dir = $(root)/web/build
 build: rcoredumpd rcoredump web monkey
 
 .PHONY: web
-web: web-dependencies
-	cd web && npm run build && mv $(web_build_dir) $(build_dir)/public
+web:
+	cd web && npm run build && rm -rf $(build_dir)/public && mv $(web_build_dir) $(build_dir)/public
 
-web-dependencies: web/node_modules
+web-dependencies:
 	cd web && npm install
 
 rcoredumpd:
