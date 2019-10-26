@@ -19,6 +19,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	"github.com/urfave/negroni"
+	"github.com/rakyll/statik/fs"
+
+	_ "github.com/elwinar/rcoredump/public"
 )
 
 func main() {
@@ -46,7 +49,6 @@ type service struct {
 	bind      string
 	dir       string
 	log       string
-	publicDir string
 
 	logger   log15.Logger
 	received *prometheus.CounterVec
@@ -63,7 +65,6 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
 	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
-	fs.StringVar(&s.publicDir, "public-dir", "./public", "directory containing the assets")
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 }
@@ -86,9 +87,15 @@ func (s *service) init() (err error) {
 	}, []string{"hostname", "executable"})
 	prometheus.MustRegister(s.received)
 
+	// Static files
+	public, err := fs.New()
+	if err != nil {
+		return err
+	}
+
 	// API Routes
 	s.router = httprouter.New()
-	s.router.NotFound = http.FileServer(http.Dir(s.publicDir))
+	s.router.NotFound = http.FileServer(public)
 	s.router.POST("/_index", s._index)
 	s.router.GET("/_search", s._search)
 	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())

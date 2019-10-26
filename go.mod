@@ -29,7 +29,7 @@ require (
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/mdempsky/gocode v0.0.0-20190203001940-7fb65232883f // indirect
 	github.com/prometheus/client_golang v1.2.1
-	github.com/prometheus/common v0.7.0
+	github.com/rakyll/statik v0.1.6
 	github.com/rogpeppe/godef v1.1.1 // indirect
 	github.com/rs/cors v1.7.0
 	github.com/rs/xid v1.2.1

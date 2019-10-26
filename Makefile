@@ -8,7 +8,8 @@ build: rcoredumpd rcoredump web monkey
 
 .PHONY: web
 web:
-	cd web && npm run build && rm -rf $(build_dir)/public && mv $(web_build_dir) $(build_dir)/public
+	cd web && npm run build
+	statik -f -src web/build/ -p public
 
 web-dependencies:
 	cd web && npm install
