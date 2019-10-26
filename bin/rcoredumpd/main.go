@@ -43,10 +43,10 @@ func main() {
 }
 
 type service struct {
-	bind    string
-	dir     string
-	log     string
-	logfile string
+	bind      string
+	dir       string
+	log       string
+	publicDir string
 
 	logger   log15.Logger
 	received *prometheus.CounterVec
@@ -63,6 +63,7 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
 	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
+	fs.StringVar(&s.publicDir, "public-dir", "./public", "directory containing the assets")
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 }
@@ -87,7 +88,7 @@ func (s *service) init() (err error) {
 
 	// API Routes
 	s.router = httprouter.New()
-	s.router.GET("/", s.home)
+	s.router.NotFound = http.FileServer(http.Dir(s.publicDir))
 	s.router.POST("/_index", s._index)
 	s.router.GET("/_search", s._search)
 	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
@@ -132,10 +133,6 @@ func (s *service) run(ctx context.Context) {
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		s.logger.Error("closing server", "err", err)
 	}
-}
-
-func (s *service) home(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
-	w.Write([]byte(`rcoredumpd`))
 }
 
 func (s *service) _index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
