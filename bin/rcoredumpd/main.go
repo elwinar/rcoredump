@@ -17,6 +17,8 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/cors"
+	"github.com/urfave/negroni"
 )
 
 func main() {
@@ -49,6 +51,7 @@ type service struct {
 	logger   log15.Logger
 	received *prometheus.CounterVec
 	router   *httprouter.Router
+	stack    *negroni.Negroni
 	index    bleve.Index
 }
 
@@ -89,6 +92,11 @@ func (s *service) init() (err error) {
 	s.router.GET("/_search", s._search)
 	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
 
+	s.stack = negroni.New()
+	s.stack.Use(negroni.NewRecovery())
+	s.stack.Use(cors.Default())
+	s.stack.UseHandler(s.router)
+
 	// Fulltext Index
 	indexPath := filepath.Join(s.dir, "index")
 	_, err = os.Stat(indexPath)
@@ -111,7 +119,7 @@ func (s *service) init() (err error) {
 func (s *service) run(ctx context.Context) {
 	server := &http.Server{
 		Addr:    s.bind,
-		Handler: s.router,
+		Handler: s.stack,
 	}
 
 	go func() {
