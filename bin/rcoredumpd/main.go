@@ -13,6 +13,7 @@ import (
 
 	"github.com/blevesearch/bleve"
 	"github.com/elwinar/rcoredump/conf"
+	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
 	"github.com/inconshreveable/log15"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
@@ -20,8 +21,6 @@ import (
 	"github.com/rs/cors"
 	"github.com/urfave/negroni"
 	"github.com/rakyll/statik/fs"
-
-	_ "github.com/elwinar/rcoredump/public"
 )
 
 func main() {

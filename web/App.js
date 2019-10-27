@@ -30,7 +30,7 @@ function App() {
 
 	return (
 		<React.Fragment>
-			<header>
+			<header className="Header">
 				<h1>RCoredump</h1>
 			</header>
 			<Searchbar handler={searchHandler}>
@@ -55,14 +55,13 @@ function Searchbar(props) {
 	}
 
 	return (
-		<input type="text" name="search" placeholder="coredump search query" onChange={handler}/>
+		<input className="Searchbar" type="text" name="search" placeholder="coredump search query" onChange={handler}/>
 	);
 }
 
 function Table(props) {
-	console.log(props);
 	return (
-		<table>
+		<table className="Table">
 			{props.entries.map(x => {
 				return (<tr key={x.id}>
 					<td>{x.id}</td>
@@ -74,6 +73,5 @@ function Table(props) {
 		</table>
 	);
 }
-
 
 export default App;

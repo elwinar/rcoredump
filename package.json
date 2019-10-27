@@ -1,0 +1,18 @@
+{
+  "name": "rcoredump",
+  "version": "1.0.0",
+  "description": "_rcoredump_ is meant to be a toolbox for aggregating, indexing, and searching core dumps. Think ELK for core dumps.",
+  "dependencies": {
+    "react": "^16.11.0",
+    "react-dom": "^16.11.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.6.4",
+    "@babel/preset-react": "^7.6.3",
+    "parcel-bundler": "^1.12.4"
+  },
+  "scripts": {
+    "build": "parcel build -d ./build/web/ web/index.html",
+    "serve": "parcel -d ./build/web/ web/index_dev.html --host 0.0.0.0"
+  }
+}

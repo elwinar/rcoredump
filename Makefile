@@ -1,24 +1,31 @@
 root = $(shell pwd)
 build_dir = $(root)/build
 bin_dir = $(root)/bin
-web_build_dir = $(root)/web/build
+
+.PHONY: all
+all: install build
+
+.PHONY: install
+install:
+	npm install
+	go mod download
 
 .PHONY: build
 build: web rcoredumpd rcoredump monkey
 
 .PHONY: web
 web:
-	cd web && npm run build
-	statik -f -src web/build/ -p public
+	npm run build
+	statik -f -src build/web -dest ./bin/rcoredumpd/ -p internal
 
-web-dependencies:
-	cd web && npm install
-
+.PHONY: rcoredumpd
 rcoredumpd:
 	go build -o ${build_dir} ${bin_dir}/rcoredumpd
 
+.PHONY: rcoredump
 rcoredump:
 	go build -o ${build_dir} ${bin_dir}/rcoredump
 
+.PHONY: monkey
 monkey:
 	go build -o ${build_dir} ${bin_dir}/monkey

@@ -1,3 +1,6 @@
-build/
-public/
-run/
+/node_modules
+/build
+/run
+/.cache
+/bin/rcoredumpd/internal
+/config.js
