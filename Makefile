@@ -9,6 +9,7 @@ all: install build
 install:
 	npm install
 	go mod download
+	go get github.com/rakyll/statik
 
 .PHONY: build
 build: web rcoredumpd rcoredump monkey
