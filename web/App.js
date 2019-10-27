@@ -62,14 +62,24 @@ function Searchbar(props) {
 function Table(props) {
 	return (
 		<table className="Table">
-			{props.entries.map(x => {
-				return (<tr key={x.id}>
-					<td>{x.id}</td>
-					<td>{x.date}</td>
-					<td>{x.executable}</td>
-					<td>{x.hostname}</td>
-				</tr>);
-			})}
+			<thead>
+				<tr>
+					<th>id</th>
+					<th>date</th>
+					<th>hostname</th>
+					<th>executable</th>
+				</tr>
+			</thead>
+			<tbody>
+				{props.entries.map(x => {
+					return (<tr key={x.id}>
+						<td>{x.id}</td>
+						<td>{x.date}</td>
+						<td>{x.hostname}</td>
+						<td>{x.executable}</td>
+					</tr>);
+				})}
+			</tbody>
 		</table>
 	);
 }
