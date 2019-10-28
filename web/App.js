@@ -1,5 +1,5 @@
 import React from 'react';
-import './App.css';
+import styles from './App.scss';
 
 function App() {
 	const [entries, setEntries] = React.useState([]);
@@ -30,7 +30,7 @@ function App() {
 
 	return (
 		<React.Fragment>
-			<header className="Header">
+			<header className={styles.Header}>
 				<h1>RCoredump</h1>
 			</header>
 			<Searchbar handler={searchHandler}>
@@ -55,13 +55,13 @@ function Searchbar(props) {
 	}
 
 	return (
-		<input className="Searchbar" type="text" name="search" placeholder="coredump search query" onChange={handler}/>
+		<input className={styles.Searchbar} type="text" name="search" placeholder="coredump search query" onChange={handler}/>
 	);
 }
 
 function Table(props) {
 	return (
-		<table className="Table">
+		<table className={styles.Table}>
 			<thead>
 				<tr>
 					<th>id</th>
