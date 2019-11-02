@@ -12,15 +12,15 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
-	"github.com/elwinar/rcoredump/conf"
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
+	"github.com/elwinar/rcoredump/conf"
 	"github.com/inconshreveable/log15"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rakyll/statik/fs"
 	"github.com/rs/cors"
 	"github.com/urfave/negroni"
-	"github.com/rakyll/statik/fs"
 )
 
 func main() {
@@ -45,9 +45,9 @@ func main() {
 }
 
 type service struct {
-	bind      string
-	dir       string
-	log       string
+	bind string
+	dir  string
+	log  string
 
 	logger   log15.Logger
 	received *prometheus.CounterVec
@@ -76,7 +76,7 @@ func (s *service) init() (err error) {
 	// Data dir
 	err = os.Mkdir(s.dir, os.ModeDir|0776)
 	if err != nil && !errors.Is(err, os.ErrExist) {
-		return err
+		return fmt.Errorf(`creating data directory: %w`, err)
 	}
 
 	// Prometheus metrics
@@ -89,7 +89,7 @@ func (s *service) init() (err error) {
 	// Static files
 	public, err := fs.New()
 	if err != nil {
-		return err
+		return fmt.Errorf(`retrieving assets: %w`, err)
 	}
 
 	// API Routes
@@ -108,7 +108,7 @@ func (s *service) init() (err error) {
 	indexPath := filepath.Join(s.dir, "index")
 	_, err = os.Stat(indexPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+		return fmt.Errorf(`checking for index: %w`, err)
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
@@ -117,7 +117,7 @@ func (s *service) init() (err error) {
 		s.index, err = bleve.Open(indexPath)
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf(`opening index: %w`, err)
 	}
 
 	return nil
