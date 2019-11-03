@@ -3,10 +3,14 @@ package main
 import (
 	"compress/gzip"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -42,10 +46,10 @@ func main() {
 }
 
 type service struct {
-	dest string
-	src  string
-
-	args []string
+	dest       string
+	src        string
+	sendBinary bool
+	args       []string
 
 	logger log15.Logger
 }
@@ -58,6 +62,7 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.dest, "dest", "http://localhost:1105", "address of the destination host")
 	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
+	fs.BoolVar(&s.sendBinary, "send-binary", true, "send the binary along with the dump")
 	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 
@@ -72,10 +77,6 @@ func (s *service) init() error {
 }
 
 func (s *service) run(ctx context.Context) {
-	// Gather a few variables.
-	// Args from the command line should be, in order:
-	// - %E, pathname of executable
-	// - %t, time of dump
 	if len(s.args) != 2 {
 		s.logger.Error("unexpected number of arguments on command-line", "want", 2, "got", len(s.args))
 		return
@@ -90,86 +91,171 @@ func (s *service) run(ctx context.Context) {
 	}
 	hostname, _ := os.Hostname()
 
+	// Look up the binary in the server by using its sha1 hash. The
+	// operation can fail in which case we will continue and consider that
+	// the binary wasn't found so we don't lose the dump.
+	var found bool
+	hash, err := s.hashBinary(executable)
+	if s.sendBinary && err == nil {
+		found, err = s.lookupBinary(hash)
+	}
+	if err != nil {
+		s.logger.Error("looking up binary", "err", err)
+	}
+	var sendBinary = s.sendBinary && !found
+
+	// We will use chunked transfer encoding to avoid keeping the whole
+	// dump in memory more than necessary. We will do this by giving the
+	// request a pipe as body, so it will read from it and send the content
+	// in multiple packets. This is a necessity given that a dump can
+	// measure in GB.
 	pr, pw := io.Pipe()
 
+	// Fill up the pipe in a routine so the sending happens in parallel and
+	// the memory consumption is kept in check.
 	go func() {
 		defer pw.Close()
 
-		// Compress the data before sending it.
+		// Send the header.
 		w := gzip.NewWriter(pw)
 		defer w.Close()
 
-		// Send the header first.
-		err = json.NewEncoder(w).Encode(rcoredump.Header{
-			Executable: executable,
-			Date:       time.Unix(timestamp, 0),
-			Hostname:   hostname,
+		err := json.NewEncoder(w).Encode(rcoredump.IndexRequest{
+			Date:           time.Unix(timestamp, 0),
+			Hostname:       hostname,
+			ExecutablePath: executable,
+			BinaryHash:     hash,
+			IncludeBinary:  sendBinary,
 		})
 		if err != nil {
-			s.logger.Error("writing header", "err", err)
+			s.logger.Error("sending header", "err", err)
 			return
 		}
+
 		err = w.Close()
 		if err != nil {
 			s.logger.Error("closing header stream", "err", err)
 			return
 		}
+
+		// Send the core.
 		w.Reset(pw)
 
-		// Then the core itself.
-		var in io.ReadCloser
-		if s.src == "-" {
-			in = os.Stdin
-		} else {
-			in, err = os.Open(s.src)
-			if err != nil {
-				s.logger.Error("opening core file", "err", err)
-				return
-			}
-			defer in.Close()
-		}
-		_, err = io.Copy(w, in)
+		err = s.sendFile(w, s.src)
 		if err != nil {
-			s.logger.Error("writing core", "err", err)
+			s.logger.Error("sending core", "err", err)
 			return
 		}
+
 		err = w.Close()
 		if err != nil {
-			s.logger.Error("closing core stream", "err", err)
+			s.logger.Error("closing header stream", "err", err)
 			return
 		}
+
+		// Check if we want to send the binary.
+		if !sendBinary {
+			return
+		}
+
+		// Send the binary.
 		w.Reset(pw)
 
-		// Then the binary.
-		bin, err := os.Open(executable)
+		err = s.sendFile(w, executable)
 		if err != nil {
-			s.logger.Error("opening bin file", "err", err)
+			s.logger.Error("sending binary", "err", err)
 			return
 		}
-		defer in.Close()
-		_, err = io.Copy(w, bin)
-		if err != nil {
-			s.logger.Error("writing bin", "err", err)
-			return
-		}
+
 		err = w.Close()
 		if err != nil {
-			s.logger.Error("closing bin stream", "err", err)
+			s.logger.Error("closing binary stream", "err", err)
 			return
 		}
 	}()
 
-	res, err := http.Post(fmt.Sprintf("%s/_index", s.dest), "application/octet-stream", pr)
+	// Send the request by giving it the reader end of the pipe.
+	res, err := http.Post(fmt.Sprintf("%s/cores", s.dest), "application/octet-stream", pr)
 	if err != nil {
 		s.logger.Error("sending core", "err", err)
 		return
 	}
-	defer res.Body.Close()
+	defer func() {
+		_, _ = io.Copy(ioutil.Discard, res.Body)
+		res.Body.Close()
+	}()
 
 	if res.StatusCode != http.StatusOK {
-		s.logger.Error("unexpected status", "err", err)
+		var err rcoredump.Error
+		_ = json.NewDecoder(res.Body).Decode(&err)
+		s.logger.Error("unexpected status", "err", err.Err)
 		return
 	}
+}
 
-	// All done, k-thx-bye.
+func (s *service) hashBinary(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", wrap(err, "opening executable")
+	}
+	defer f.Close()
+
+	h := sha1.New()
+
+	_, err = io.Copy(h, f)
+	if err != nil {
+		return "", wrap(err, "hashing executable")
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func (s *service) lookupBinary(hash string) (bool, error) {
+	res, err := http.Head(fmt.Sprintf("%s/binaries/%s", s.dest, hash))
+	if err != nil {
+		return false, wrap(err, "executing request")
+	}
+	defer res.Body.Close()
+
+	raw, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return false, wrap(err, "reading response")
+	}
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotFound:
+		return false, nil
+	default:
+		var err rcoredump.Error
+		json.Unmarshal(raw, &err)
+		return false, wrap(errors.New(err.Err), "unexpected response")
+	}
+}
+
+func (s *service) sendFile(w io.Writer, path string) error {
+	var err error
+	var f io.ReadCloser
+	if path == "-" {
+		f = os.Stdin
+	} else {
+		f, err = os.Open(path)
+		if err != nil {
+			return wrap(err, "opening file")
+		}
+		defer f.Close()
+	}
+
+	_, err = io.Copy(w, f)
+	if err != nil {
+		return wrap(err, "writing file")
+	}
+
+	return nil
+}
+
+// wrap an error using the provided message and arguments.
+func wrap(err error, msg string, args ...interface{}) error {
+	return fmt.Errorf("%s: %w", fmt.Sprintf(msg, args...), err)
 }
