@@ -14,7 +14,7 @@ function App() {
 		}
 		query = encodeURIComponent(query);
 
-		fetch(`${document.config.baseURL}/_search?q=${query}`)
+		fetch(`${document.config.baseURL}/cores?q=${query}`)
 			.then(res => res.json())
 			.then(function(res){
 				setEntries(res.hits.map(x => {

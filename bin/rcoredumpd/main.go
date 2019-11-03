@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
+	"github.com/elwinar/rcoredump"
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
 	"github.com/elwinar/rcoredump/conf"
 	"github.com/inconshreveable/log15"
@@ -74,9 +77,15 @@ func (s *service) init() (err error) {
 	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
 
 	// Data dir
-	err = os.Mkdir(s.dir, os.ModeDir|0776)
-	if err != nil && !errors.Is(err, os.ErrExist) {
-		return fmt.Errorf(`creating data directory: %w`, err)
+	for _, dir := range []string{
+		s.dir,
+		filepath.Join(s.dir, "binaries"),
+		filepath.Join(s.dir, "cores"),
+	} {
+		err = os.Mkdir(dir, os.ModeDir|0776)
+		if err != nil && !errors.Is(err, os.ErrExist) {
+			return fmt.Errorf(`creating data directory: %w`, err)
+		}
 	}
 
 	// Prometheus metrics
@@ -95,10 +104,18 @@ func (s *service) init() (err error) {
 	// API Routes
 	s.router = httprouter.New()
 	s.router.NotFound = http.FileServer(public)
-	s.router.POST("/_index", s._index)
-	s.router.GET("/_search", s._search)
+
+	s.router.POST("/cores", s.indexCore)
+	s.router.GET("/cores", s.searchCore)
+	s.router.HEAD("/cores/:uid", s.lookupCore)
+	s.router.GET("/cores/:uid", s.getCore)
+
+	s.router.HEAD("/binaries/:hash", s.lookupBinary)
+	s.router.GET("/binaries/:hash", s.getBinary)
+
 	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
 
+	// Middleware stack
 	s.stack = negroni.New()
 	s.stack.Use(negroni.NewRecovery())
 	s.stack.Use(cors.Default())
@@ -135,34 +152,38 @@ func (s *service) run(ctx context.Context) {
 		server.Shutdown(ctx)
 	}()
 
+	s.logger.Info("starting")
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		s.logger.Error("closing server", "err", err)
 	}
+	s.logger.Info("stopping")
 }
 
-func (s *service) _index(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	req := newIndexRequest(r, s.logger, s.dir, s.index)
+func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	req := newIndexRequest(r, s.logger)
 	defer req.close()
 
-	req.readHeader()
-	req.readCore()
-	req.readBinary()
-	req.indexCore()
+	req.read()
+	req.readCore(filepath.Join(s.dir, "cores", req.uid))
+	if req.IncludeBinary {
+		req.readBinary(filepath.Join(s.dir, "binaries", req.BinaryHash))
+	}
+	req.indexCore(s.index)
 
 	if req.err != nil {
 		s.logger.Error("indexing", "uid", req.uid, "err", req.err)
-		write(w, http.StatusInternalServerError, Error{Err: req.err.Error()})
+		write(w, http.StatusInternalServerError, rcoredump.Error{Err: req.err.Error()})
 		return
 	}
 
 	s.received.With(prometheus.Labels{
-		"hostname":   req.header.Hostname,
-		"executable": req.header.Executable,
+		"hostname":   req.Hostname,
+		"executable": req.ExecutablePath,
 	}).Inc()
 }
 
-func (s *service) _search(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	qs := r.FormValue("q")
 	q := bleve.NewQueryStringQuery(qs)
 	req := bleve.NewSearchRequest(q)
@@ -170,9 +191,80 @@ func (s *service) _search(w http.ResponseWriter, r *http.Request, _ httprouter.P
 
 	res, err := s.index.Search(req)
 	if err != nil {
-		write(w, http.StatusBadRequest, Error{Err: err.Error()})
+		write(w, http.StatusBadRequest, rcoredump.Error{Err: err.Error()})
 		return
 	}
 
 	write(w, http.StatusOK, res)
+}
+
+func (s *service) lookupCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	_, err := os.Stat(filepath.Join(s.dir, "cores", p.ByName("uid")))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		s.logger.Warn("looking up core", "uid", p.ByName("uid"), "err", err)
+		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
+		return
+	}
+
+	if err != nil {
+		write(w, http.StatusNotFound, rcoredump.Error{Err: err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	f, err := os.Open(filepath.Join(s.dir, "cores", p.ByName("uid")))
+	if err != nil {
+		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
+		return
+	}
+	defer f.Close()
+
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, f)
+}
+
+func (s *service) lookupBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	_, err := os.Stat(filepath.Join(s.dir, "binaries", p.ByName("hash")))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		s.logger.Warn("looking up binary", "hash", p.ByName("hash"), "err", err)
+		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
+		return
+	}
+
+	if err != nil {
+		write(w, http.StatusNotFound, rcoredump.Error{Err: err.Error()})
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *service) getBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	f, err := os.Open(filepath.Join(s.dir, "binaries", p.ByName("hash")))
+	if err != nil {
+		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
+		return
+	}
+	defer f.Close()
+
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, f)
+}
+
+// write a payload and a status to the ResponseWriter.
+func write(w http.ResponseWriter, status int, payload interface{}) {
+	w.WriteHeader(status)
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		panic(err)
+	}
+	_, _ = w.Write(raw)
+}
+
+// wrap an error using the provided message and arguments.
+func wrap(err error, msg string, args ...interface{}) error {
+	return fmt.Errorf("%s: %w", fmt.Sprintf(msg, args...), err)
 }

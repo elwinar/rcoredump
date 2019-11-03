@@ -2,15 +2,12 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/blevesearch/bleve"
 	"github.com/elwinar/rcoredump"
@@ -19,31 +16,24 @@ import (
 )
 
 type indexRequest struct {
-	r     *http.Request
-	log   log15.Logger
-	dir   string
-	index bleve.Index
+	rcoredump.IndexRequest
+	r    *http.Request
+	log  log15.Logger
+	uid  string
+	body *bufio.Reader
 
-	uid    string
-	body   *bufio.Reader
+	err    error
 	reader *gzip.Reader
-	header rcoredump.Header
-
-	err error
 }
 
-func newIndexRequest(r *http.Request, log log15.Logger, dir string, index bleve.Index) *indexRequest {
-	req := &indexRequest{
-		r:     r,
-		dir:   dir,
-		index: index,
+func newIndexRequest(r *http.Request, log log15.Logger) *indexRequest {
+	uid := xid.New().String()
+	return &indexRequest{
+		r:    r,
+		log:  log.New("uid", uid),
+		uid:  uid,
+		body: bufio.NewReader(r.Body),
 	}
-
-	req.uid = xid.New().String()
-	req.log = log.New("uid", req.uid)
-	req.body = bufio.NewReader(r.Body)
-
-	return req
 }
 
 func (r *indexRequest) close() {
@@ -54,66 +44,50 @@ func (r *indexRequest) close() {
 	r.r.Body.Close()
 }
 
-func (r *indexRequest) prepareReader() {
-	reader, err := gzip.NewReader(r.body)
-	if err != nil {
-		r.err = wrap(err, "preparing gzip decoding")
-		return
+func (r *indexRequest) prepareReader() error {
+	var err error
+	if r.reader == nil {
+		r.reader, err = gzip.NewReader(r.body)
+	} else {
+		err = r.reader.Reset(r.body)
 	}
-	r.reader = reader
+	if err != nil {
+		return err
+	}
 	r.reader.Multistream(false)
+	return nil
 }
 
-func (r *indexRequest) resetReader() {
+func (r *indexRequest) read() {
 	if r.err != nil {
 		return
 	}
 
-	err := r.reader.Reset(r.body)
+	err := r.prepareReader()
 	if err != nil {
-		r.err = wrap(err, "reseting gzip reader")
-		return
-	}
-	r.reader.Multistream(false)
-}
-
-func (r *indexRequest) readHeader() {
-	r.prepareReader()
-	if r.err != nil {
-		return
-	}
-	r.log.Debug("reading header")
-
-	f, err := os.Create(filepath.Join(r.dir, fmt.Sprintf("%s.json", r.uid)))
-	if err != nil {
-		r.err = wrap(err, "creating header file")
-		return
-	}
-	defer f.Close()
-
-	buf := &bytes.Buffer{}
-
-	_, err = io.Copy(io.MultiWriter(f, buf), r.reader)
-	if err != nil {
-		r.err = wrap(err, "reading header")
+		r.err = wrap(err, "preparing gzip reader")
 		return
 	}
 
-	err = json.NewDecoder(buf).Decode(&r.header)
+	err = json.NewDecoder(r.reader).Decode(&r.IndexRequest)
 	if err != nil {
 		r.err = wrap(err, "parsing header")
 		return
 	}
 }
 
-func (r *indexRequest) readCore() {
-	r.resetReader()
+func (r *indexRequest) readCore(path string) {
 	if r.err != nil {
 		return
 	}
-	r.log.Debug("reading core")
 
-	f, err := os.Create(filepath.Join(r.dir, fmt.Sprintf("%s.core", r.uid)))
+	err := r.prepareReader()
+	if err != nil {
+		r.err = wrap(err, "preparing gzip reader")
+		return
+	}
+
+	f, err := os.Create(path)
 	if err != nil {
 		r.err = wrap(err, "creating core file")
 		return
@@ -127,14 +101,18 @@ func (r *indexRequest) readCore() {
 	}
 }
 
-func (r *indexRequest) readBinary() {
-	r.resetReader()
+func (r *indexRequest) readBinary(path string) {
 	if r.err != nil {
 		return
 	}
-	r.log.Debug("reading binary")
 
-	f, err := os.Create(filepath.Join(r.dir, fmt.Sprintf("%s.bin", r.uid)))
+	err := r.prepareReader()
+	if err != nil {
+		r.err = wrap(err, "preparing gzip reader")
+		return
+	}
+
+	f, err := os.Create(path)
 	if err != nil {
 		r.err = wrap(err, "creating binary file")
 		return
@@ -148,13 +126,18 @@ func (r *indexRequest) readBinary() {
 	}
 }
 
-func (r *indexRequest) indexCore() {
+func (r *indexRequest) indexCore(i bleve.Index) {
 	if r.err != nil {
 		return
 	}
-	r.log.Debug("indexing core")
 
-	err := r.index.Index(r.uid, r.header)
+	err := i.Index(r.uid, rcoredump.Coredump{
+		UID:            r.uid,
+		Date:           r.Date,
+		Hostname:       r.Hostname,
+		ExecutablePath: r.ExecutablePath,
+		BinaryHash:     r.BinaryHash,
+	})
 	if err != nil {
 		r.err = wrap(err, "indexing core")
 		return
