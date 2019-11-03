@@ -17,14 +17,7 @@ function App() {
 		fetch(`${document.config.baseURL}/cores?q=${query}`)
 			.then(res => res.json())
 			.then(function(res){
-				setEntries(res.hits.map(x => {
-					return {
-						id: x.id,
-						date: x.fields.date,
-						executable: x.fields.executable,
-						hostname: x.fields.hostname,
-					}
-				}));
+				setEntries(res.hits.map(x => x.fields));
 			});
 	}
 
@@ -68,15 +61,17 @@ function Table(props) {
 					<th>date</th>
 					<th>hostname</th>
 					<th>executable</th>
+					<th></th>
 				</tr>
 			</thead>
 			<tbody>
 				{props.entries.map(x => {
-					return (<tr key={x.id}>
-						<td>{x.id}</td>
+					return (<tr key={x.uid}>
+						<td>{x.uid}</td>
 						<td>{x.date}</td>
 						<td>{x.hostname}</td>
-						<td>{x.executable}</td>
+						<td>{x.executable_path}</td>
+						<td><a href={`${document.config.baseURL}/cores/${x.uid}`}>core</a> <a href={`${document.config.baseURL}/binaries/${x.binary_hash}`}>binary</a></td>
 					</tr>);
 				})}
 			</tbody>
