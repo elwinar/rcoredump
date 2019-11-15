@@ -4,17 +4,17 @@ import styles from './App.scss';
 function App() {
 	const [entries, setEntries] = React.useState([]);
 	React.useEffect(function(){
-		searchHandler("");
+		searchHandler({q:""});
 	}, []);
 
 	function searchHandler(query) {
-		query = query.trim();
-		if (query.length === 0) {
-			query = "*";
+		query.q = query.q.trim();
+		if (query.q.length === 0) {
+			query.q = "*";
 		}
-		query = encodeURIComponent(query);
+		query.q = encodeURIComponent(query.q);
 
-		fetch(`${document.config.baseURL}/cores?q=${query}`)
+		fetch(`${document.config.baseURL}/cores?q=${query.q}`)
 			.then(res => res.json())
 			.then(function(res){
 				setEntries(res.hits.map(x => x.fields));
@@ -35,23 +35,18 @@ function App() {
 }
 
 function Searchbar(props) {
-	let searchTimeout = null;
-
-	function handler(ev) {
-		let val = ev.target.value;
-		if (searchTimeout) {
-			clearTimeout(searchTimeout);
-		}
-		searchTimeout = setTimeout(function() {
-			props.handler(val);
-		}, 500);
+	function handleSubmit(ev) {
+		ev.preventDefault();
+		props.handler({
+			q: ev.target.querySelector('input').value,
+		});
 	}
 
 	return (
-		<section className={styles.Searchbar}>
-			<input type="text" name="search" placeholder="coredump search query" onChange={handler} />
+		<form className={styles.Searchbar} onSubmit={handleSubmit}>
+			<input type="text" name="search" placeholder="coredump search query" />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
-		</section>
+		</form>
 	);
 }
 
