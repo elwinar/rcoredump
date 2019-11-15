@@ -48,7 +48,10 @@ function Searchbar(props) {
 	}
 
 	return (
-		<input className={styles.Searchbar} type="text" name="search" placeholder="coredump search query" onChange={handler}/>
+		<section className={styles.Searchbar}>
+			<input type="text" name="search" placeholder="coredump search query" onChange={handler} />
+			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
+		</section>
 	);
 }
 

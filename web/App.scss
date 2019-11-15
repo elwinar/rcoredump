@@ -2,7 +2,16 @@
 }
 
 .Searchbar {
-	width: 100%;
+	input {
+		width: 100%;
+		margin-bottom: 0.5em;
+	}
+
+	p {
+		text-align: right;
+		font-size: 0.8em;
+		margin-top: 0;
+	}
 }
 
 .Table {
