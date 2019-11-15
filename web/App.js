@@ -35,16 +35,18 @@ function App() {
 }
 
 function Searchbar(props) {
+	const input = React.useRef(null);
+
 	function handleSubmit(ev) {
 		ev.preventDefault();
 		props.handler({
-			q: ev.target.querySelector('input').value,
+			q: input.current.value,
 		});
 	}
 
 	return (
 		<form className={styles.Searchbar} onSubmit={handleSubmit}>
-			<input type="text" name="search" placeholder="coredump search query" />
+			<input type="text" ref={input} placeholder="coredump search query" />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
 		</form>
 	);
