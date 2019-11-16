@@ -8,13 +8,8 @@ function App() {
 	}, []);
 
 	function searchHandler(query) {
-		query.q = query.q.trim();
-		if (query.q.length === 0) {
-			query.q = "*";
-		}
-		query.q = encodeURIComponent(query.q);
-
-		fetch(`${document.config.baseURL}/cores?q=${query.q}`)
+		const q = encodeURIComponent(query.q.trim() || "*");
+		fetch(`${document.config.baseURL}/cores?q=${q}`)
 			.then(res => res.json())
 			.then(function(res){
 				setEntries(res.hits.map(x => x.fields));
