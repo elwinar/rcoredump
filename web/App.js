@@ -3,25 +3,36 @@ import styles from './App.scss';
 
 function App() {
 	const [entries, setEntries] = React.useState([]);
+	const [query, setQuery] = React.useState({q: "*"});
+
 	React.useEffect(function(){
-		searchHandler({q:""});
+		const h = new URLSearchParams(document.location.search.substring(1)).get('query');
+		if (h === null) {
+			return;
+		}
+		setQuery(JSON.parse(atob(h)));
 	}, []);
 
-	function searchHandler(query) {
-		const q = encodeURIComponent(query.q.trim() || "*");
+	React.useEffect(function() {
+		const q = encodeURIComponent(query.q.trim());
 		fetch(`${document.config.baseURL}/cores?q=${q}`)
 			.then(res => res.json())
 			.then(function(res){
 				setEntries(res.hits.map(x => x.fields));
 			});
-	}
+	}, [query]);
+
+	React.useEffect(function(){
+		const h = btoa(JSON.stringify(query));
+		history.pushState({query: h}, '', `?query=${h}`);
+	}, [query]);
 
 	return (
 		<React.Fragment>
 			<header className={styles.Header}>
 				<h1>RCoredump</h1>
 			</header>
-			<Searchbar handler={searchHandler}>
+			<Searchbar handler={setQuery} values={query}>
 			</Searchbar>
 			<Table entries={entries}>
 			</Table>
@@ -32,8 +43,15 @@ function App() {
 function Searchbar(props) {
 	const [submitted, setSubmitted] = React.useState({});
 	let refs = {
-		'q': React.useRef(null),
+		q: React.useRef(null),
 	};
+
+	React.useEffect(function() {
+		Object.values(refs).forEach(function(ref) {
+			ref.current.value = props.values[ref.current.name];
+		});
+		setSubmitted(props.values);
+	}, [props.values]);
 
 	function changeHandler(ev) {
 		if (submitted[ev.target.name] !== ev.target.value) {
