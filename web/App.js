@@ -32,7 +32,7 @@ function App() {
 			<header className={styles.Header}>
 				<h1>RCoredump</h1>
 			</header>
-			<Searchbar handler={setQuery} values={query}>
+			<Searchbar setQuery={setQuery} query={query}>
 			</Searchbar>
 			<Table entries={entries}>
 			</Table>
@@ -41,42 +41,36 @@ function App() {
 }
 
 function Searchbar(props) {
-	const [submitted, setSubmitted] = React.useState({});
-	let refs = {
-		q: React.useRef(null),
-	};
+	const {query, setQuery, ...attributes} = props;
+	const [state, setState] = React.useState(query);
 
 	React.useEffect(function() {
-		Object.values(refs).forEach(function(ref) {
-			ref.current.value = props.values[ref.current.name];
-		});
-		setSubmitted(props.values);
-	}, [props.values]);
+		setState(query);
+	}, [query]);
 
-	function changeHandler(ev) {
-		if (submitted[ev.target.name] !== ev.target.value) {
+	function change(ev) {
+		setState({
+			[ev.target.name]: ev.target.value,
+		});
+
+		if (query[ev.target.name] !== ev.target.value) {
 			ev.target.setAttribute('dirty', '');
 		} else {
 			ev.target.removeAttribute('dirty');
 		}
 	}
 
-	function submitHandler(ev) {
+	function submit(ev) {
 		ev.preventDefault();
-		let query = {};
-		Object.values(refs).forEach(function(ref) {
-			query[ref.current.name] = ref.current.value;
-		});
-		setSubmitted(query);
-		props.handler(query);
-		Object.values(refs).forEach(function(ref) {
-			ref.current.removeAttribute('dirty');
+		setQuery(state);
+		Array.from(ev.target.elements).forEach(function(el) {
+			el.removeAttribute('dirty');
 		});
 	}
 
 	return (
-		<form className={styles.Searchbar} onSubmit={submitHandler}>
-			<input type="text" ref={refs.q} name="q" placeholder="coredump search query" onChange={changeHandler} />
+		<form className={styles.Searchbar} onSubmit={submit}>
+			<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
 		</form>
 	);
