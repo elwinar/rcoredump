@@ -37,7 +37,7 @@ function App() {
 function Searchbar(props) {
 	const input = React.useRef(null);
 
-	function handleSubmit(ev) {
+	function handler(ev) {
 		ev.preventDefault();
 		props.handler({
 			q: input.current.value,
@@ -45,10 +45,10 @@ function Searchbar(props) {
 	}
 
 	return (
-		<form className={styles.Searchbar} onSubmit={handleSubmit}>
-			<input type="text" ref={input} placeholder="coredump search query" />
+		<Form className={styles.Searchbar} onSubmit={handler}>
+			<Input type="text" inputRef={input} placeholder="coredump search query" />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
-		</form>
+		</Form>
 	);
 }
 
@@ -77,6 +77,41 @@ function Table(props) {
 			</tbody>
 		</table>
 	);
+}
+
+function Form(props) {
+	const {children, onSubmit, ...attributes} = props;
+
+	function handler(ev) {
+		ev.target.querySelectorAll('input').forEach(function(el) {
+			el.dataset.saved = el.value;
+			el.removeAttribute('dirty');
+		});
+
+		if (onSubmit !== undefined) {
+			onSubmit(ev);
+		}
+	}
+
+	return <form {...attributes} onSubmit={handler}>{children}</form>;
+}
+
+function Input(props) {
+	const {inputRef, onChange, ...attributes} = props;
+
+	function handler(ev) {
+		if (ev.target.dataset.saved == ev.target.value) {
+			ev.target.removeAttribute('dirty');
+		} else {
+			ev.target.setAttribute('dirty', '');
+		}
+
+		if (onChange !== undefined) {
+			onChange(ev)
+		};
+	}
+
+	return <input {...attributes} ref={inputRef} onChange={handler} />;
 }
 
 export default App;
