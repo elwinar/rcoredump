@@ -30,20 +30,37 @@ function App() {
 }
 
 function Searchbar(props) {
-	const input = React.useRef(null);
+	const [submitted, setSubmitted] = React.useState({});
+	let refs = {
+		'q': React.useRef(null),
+	};
 
-	function handler(ev) {
+	function changeHandler(ev) {
+		if (submitted[ev.target.name] !== ev.target.value) {
+			ev.target.setAttribute('dirty', '');
+		} else {
+			ev.target.removeAttribute('dirty');
+		}
+	}
+
+	function submitHandler(ev) {
 		ev.preventDefault();
-		props.handler({
-			q: input.current.value,
+		let query = {};
+		Object.values(refs).forEach(function(ref) {
+			query[ref.current.name] = ref.current.value;
+		});
+		setSubmitted(query);
+		props.handler(query);
+		Object.values(refs).forEach(function(ref) {
+			ref.current.removeAttribute('dirty');
 		});
 	}
 
 	return (
-		<Form className={styles.Searchbar} onSubmit={handler}>
-			<Input type="text" inputRef={input} placeholder="coredump search query" />
+		<form className={styles.Searchbar} onSubmit={submitHandler}>
+			<input type="text" ref={refs.q} name="q" placeholder="coredump search query" onChange={changeHandler} />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
-		</Form>
+		</form>
 	);
 }
 
@@ -72,41 +89,6 @@ function Table(props) {
 			</tbody>
 		</table>
 	);
-}
-
-function Form(props) {
-	const {children, onSubmit, ...attributes} = props;
-
-	function handler(ev) {
-		ev.target.querySelectorAll('input').forEach(function(el) {
-			el.dataset.saved = el.value;
-			el.removeAttribute('dirty');
-		});
-
-		if (onSubmit !== undefined) {
-			onSubmit(ev);
-		}
-	}
-
-	return <form {...attributes} onSubmit={handler}>{children}</form>;
-}
-
-function Input(props) {
-	const {inputRef, onChange, ...attributes} = props;
-
-	function handler(ev) {
-		if (ev.target.dataset.saved == ev.target.value) {
-			ev.target.removeAttribute('dirty');
-		} else {
-			ev.target.setAttribute('dirty', '');
-		}
-
-		if (onChange !== undefined) {
-			onChange(ev)
-		};
-	}
-
-	return <input {...attributes} ref={inputRef} onChange={handler} />;
 }
 
 export default App;
