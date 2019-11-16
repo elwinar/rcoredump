@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/blevesearch/bleve"
@@ -184,10 +185,20 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 }
 
 func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	qs := r.FormValue("q")
-	q := bleve.NewQueryStringQuery(qs)
-	req := bleve.NewSearchRequest(q)
+	// Create the search request first.
+	req := bleve.NewSearchRequest(
+		bleve.NewQueryStringQuery(r.FormValue("q")),
+	)
+	// Add the fields to look for.
 	req.Fields = []string{"*"}
+	// If there is a sort parameter in the form, add it to the search
+	// string.
+	sort := r.FormValue("sort")
+	if len(sort) != 0 {
+		req.SortBy(strings.Split(sort, ","))
+	} else {
+		req.SortBy([]string{"-date"})
+	}
 
 	res, err := s.index.Search(req)
 	if err != nil {
