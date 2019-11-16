@@ -8,11 +8,6 @@
 	$background-light: #fcfcfa;
 	$background-dark: #BDBCB4;
 
-	body * {
-		margin: 1em 0;
-		box-sizing: border-box;
-	}
-
 	body {
 		max-width: 960px;
 		margin: 0 auto;
@@ -20,6 +15,11 @@
 		font-family: Montserrat, sans-serif;
 		font-weight: 300;
 		background: $background;
+	}
+
+	body * {
+		margin: 1em 0;
+		box-sizing: border-box;
 	}
 
 	h1, h2, h3, h4, h5, h6 {
