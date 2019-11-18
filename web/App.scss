@@ -23,7 +23,7 @@
 	}
 
 	select {
-		&[name="sort"] {
+		&[name="sort"], &[name="size"] {
 			float: right;
 		}
 	}

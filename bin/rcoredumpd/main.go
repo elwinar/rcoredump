@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -185,6 +186,8 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 }
 
 func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var err error
+
 	// Create the search request first.
 	req := bleve.NewSearchRequest(
 		bleve.NewQueryStringQuery(r.FormValue("q")),
@@ -198,6 +201,18 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 		req.SortBy(strings.Split(sort, ","))
 	} else {
 		req.SortBy([]string{"-date"})
+	}
+	// If there is a size parameter in the form, add it to the search
+	// string.
+	size := r.FormValue("size")
+	if len(size) != 0 {
+		req.Size, err = strconv.Atoi(size)
+		if err != nil {
+			write(w, http.StatusBadRequest, rcoredump.Error{Err: fmt.Sprintf(`invalid size parameter: %s`, err.Error())})
+			return
+		}
+	} else {
+		req.Size = 20
 	}
 
 	res, err := s.index.Search(req)

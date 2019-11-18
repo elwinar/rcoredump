@@ -3,7 +3,7 @@ import styles from './App.scss';
 
 function App() {
 	const [entries, setEntries] = React.useState([]);
-	const [query, setQuery] = React.useState({q: "*"});
+	const [query, setQuery] = React.useState({q: "*", size: 20});
 
 	React.useEffect(function(){
 		const h = new URLSearchParams(document.location.search.substring(1)).get('query');
@@ -65,6 +65,11 @@ function Searchbar(props) {
 
 	return (
 		<form className={styles.Searchbar} onSubmit={submit}>
+			<select name="size" onChange={change}>
+				{[10, 20, 50].map(field => {
+					return <option key={field} value={field} selected={state.size === field}>{field}</option>;
+				})}
+			</select>
 			<select name="sort" onChange={change}>
 				{['-date', 'date', 'hostname', '-hostname', 'executable', '-executable'].map(field => {
 					return <option key={field} value={field} selected={state.sort === field}>{field}</option>;
