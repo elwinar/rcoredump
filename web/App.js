@@ -14,8 +14,11 @@ function App() {
 	}, []);
 
 	React.useEffect(function() {
-		const q = encodeURIComponent(query.q.trim());
-		fetch(`${document.config.baseURL}/cores?q=${q}`)
+		let params = [];
+		for (const name in query) {
+			params.push(encodeURIComponent(name) + '=' + encodeURIComponent(query[name]));
+		}
+		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
 			.then(res => res.json())
 			.then(function(res){
 				setEntries(res.hits.map(x => x.fields));
@@ -62,7 +65,12 @@ function Searchbar(props) {
 
 	return (
 		<form className={styles.Searchbar} onSubmit={submit}>
-			<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q === query.q} />
+			<select name="sort" onChange={change}>
+				{['-date', 'date', 'hostname', '-hostname', 'executable', '-executable'].map(field => {
+					return <option key={field} value={field} selected={state.sort === field}>{field}</option>;
+				})}
+			</select>
+			<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q !== query.q ? "true": undefined} />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
 		</form>
 	);

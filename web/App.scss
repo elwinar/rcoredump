@@ -2,15 +2,30 @@
 }
 
 .Searchbar {
-	input {
-		width: 100%;
-		margin-bottom: 0.5em;
+	input, select {
+		margin: 0.5em 0;
+
+		&[dirty] {
+			border-color: blue;
+		}
+	}
+
+	input[type="text"] {
+		&[name="q"] {
+			width: 100%;
+		}
 	}
 
 	p {
 		text-align: right;
 		font-size: 0.8em;
 		margin-top: 0;
+	}
+
+	select {
+		&[name="sort"] {
+			float: right;
+		}
 	}
 }
 

@@ -44,10 +44,6 @@
 		&:focus {
 			border-color: $primary;
 		}
-
-		&[dirty] {
-			border-color: blue;
-		}
 	}
 
 	table {
