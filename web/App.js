@@ -50,27 +50,19 @@ function Searchbar(props) {
 
 	function change(ev) {
 		setState({
+			...state,
 			[ev.target.name]: ev.target.value,
 		});
-
-		if (query[ev.target.name] !== ev.target.value) {
-			ev.target.setAttribute('dirty', '');
-		} else {
-			ev.target.removeAttribute('dirty');
-		}
 	}
 
 	function submit(ev) {
 		ev.preventDefault();
 		setQuery(state);
-		Array.from(ev.target.elements).forEach(function(el) {
-			el.removeAttribute('dirty');
-		});
 	}
 
 	return (
 		<form className={styles.Searchbar} onSubmit={submit}>
-			<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} />
+			<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q === query.q} />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
 		</form>
 	);
