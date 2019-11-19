@@ -46,6 +46,7 @@ function App() {
 function Searchbar(props) {
 	const {query, setQuery, ...attributes} = props;
 	const [state, setState] = React.useState(query);
+	const [advanced, setAdvanced] = React.useState("");
 
 	React.useEffect(function() {
 		setState(query);
@@ -63,19 +64,33 @@ function Searchbar(props) {
 		setQuery(state);
 	}
 
+	function toggle (ev) {
+		setAdvanced(advanced === ev.target.name ? "" : ev.target.name);
+	}
+
 	return (
 		<form className={styles.Searchbar} onSubmit={submit}>
-			<input type="submit" name="apply" value="Apply" />
-			<select name="size" onChange={change} dirty={state.size !== query.size ? "true" : undefined }>
-				{[10, 20, 50].map(field => {
-					return <option key={field} value={field} selected={state.size === field}>{field}</option>;
-				})}
-			</select>
-			<select name="sort" onChange={change} dirty={state.sort !== query.sort ? "true" : undefined }>
-				{['-date', 'date', 'hostname', '-hostname', 'executable', '-executable'].map(field => {
-					return <option key={field} value={field} selected={state.sort === field}>{field}</option>;
-				})}
-			</select>
+			<fieldset>
+				<button type="button" name="size" dirty={state.size !== query.size ? "true" : undefined } onClick={toggle}>size: {state.size}</button>
+				<button type="button" name="sort" dirty={state.sort !== query.sort ? "true" : undefined } onClick={toggle}>sort: {state.sort}</button>
+				<button type="submit" onClick={toggle}>Apply</button>
+			</fieldset>
+			<fieldset style={{display: advanced === "size" ? "block" : "none" }}>
+				<p>Size: {['10', '20', '50'].map(field => {
+					return (<React.Fragment key={field}>
+						<input type="radio" name="size" id={field} value={field} checked={state.size === field} onChange={change} />
+						<label htmlFor={field}>{field}</label>
+					</React.Fragment>);
+				})}</p>
+			</fieldset>
+			<fieldset style={{display: advanced === "sort" ? "block" : "none" }}>
+				<p>Sort: {['-date', 'date', 'hostname', '-hostname', 'executable', '-executable'].map(field => {
+					return (<React.Fragment key={field}>
+						<input type="radio" name="sort" id={field} value={field} checked={state.sort === field} onChange={change} />
+						<label htmlFor={field}>{field}</label>
+					</React.Fragment>);
+				})}</p>
+			</fieldset>
 			<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q !== query.q ? "true": undefined} />
 			<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
 		</form>

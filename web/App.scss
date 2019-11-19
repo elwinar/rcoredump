@@ -2,10 +2,6 @@
 }
 
 .Searchbar {
-	input, select {
-		margin: 0.5em 0;
-	}
-
 	input[name="q"] {
 		width: 100%;
 
@@ -16,8 +12,15 @@
 		}
 	}
 
-	select[name="sort"], select[name="size"], input[name="apply"] {
-		float: right;
+	fieldset {
+		padding: 0;
+		margin: 0;
+		border: none;
+		text-align: right;
+
+		& > button {
+			margin: 0.5em 0;
+		}
 	}
 }
 
