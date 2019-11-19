@@ -3,7 +3,7 @@ import styles from './App.scss';
 
 function App() {
 	const [entries, setEntries] = React.useState([]);
-	const [query, setQuery] = React.useState({q: "*", size: 20});
+	const [query, setQuery] = React.useState({q: "*", sort: "-date", size: 20});
 
 	React.useEffect(function(){
 		const h = new URLSearchParams(document.location.search.substring(1)).get('query');
