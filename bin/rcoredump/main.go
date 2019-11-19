@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"log/syslog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -49,6 +50,7 @@ type service struct {
 	dest       string
 	src        string
 	sendBinary bool
+	syslog     bool
 	args       []string
 
 	logger log15.Logger
@@ -63,6 +65,7 @@ func (s *service) configure() {
 	fs.StringVar(&s.dest, "dest", "http://localhost:1105", "address of the destination host")
 	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
 	fs.BoolVar(&s.sendBinary, "send-binary", true, "send the binary along with the dump")
+	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
 	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 
@@ -71,7 +74,19 @@ func (s *service) configure() {
 
 func (s *service) init() error {
 	s.logger = log15.New()
-	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
+
+	format := log15.LogfmtFormat()
+	var handler log15.Handler
+	if s.syslog {
+		var err error
+		handler, err = log15.SyslogHandler(syslog.LOG_KERN, "rcoredump", format)
+		if err != nil {
+			return err
+		}
+	} else {
+		handler = log15.StreamHandler(os.Stdout, format)
+	}
+	s.logger.SetHandler(handler)
 
 	return nil
 }
