@@ -4,28 +4,20 @@
 .Searchbar {
 	input, select {
 		margin: 0.5em 0;
+	}
 
-		&[dirty] {
-			border-color: blue;
+	input[name="q"] {
+		width: 100%;
+
+		& + p {
+			text-align: right;
+			font-size: 0.8em;
+			margin-top: 0;
 		}
 	}
 
-	input[type="text"] {
-		&[name="q"] {
-			width: 100%;
-		}
-	}
-
-	p {
-		text-align: right;
-		font-size: 0.8em;
-		margin-top: 0;
-	}
-
-	select {
-		&[name="sort"], &[name="size"] {
-			float: right;
-		}
+	select[name="sort"], select[name="size"], input[name="apply"] {
+		float: right;
 	}
 }
 

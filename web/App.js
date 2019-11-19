@@ -65,12 +65,13 @@ function Searchbar(props) {
 
 	return (
 		<form className={styles.Searchbar} onSubmit={submit}>
-			<select name="size" onChange={change}>
+			<input type="submit" name="apply" value="Apply" />
+			<select name="size" onChange={change} dirty={state.size !== query.size ? "true" : undefined }>
 				{[10, 20, 50].map(field => {
 					return <option key={field} value={field} selected={state.size === field}>{field}</option>;
 				})}
 			</select>
-			<select name="sort" onChange={change}>
+			<select name="sort" onChange={change} dirty={state.sort !== query.sort ? "true" : undefined }>
 				{['-date', 'date', 'hostname', '-hostname', 'executable', '-executable'].map(field => {
 					return <option key={field} value={field} selected={state.sort === field}>{field}</option>;
 				})}
