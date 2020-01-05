@@ -1,6 +1,8 @@
 package rcoredump
 
-import "time"
+import (
+	"time"
+)
 
 // IndexRequest is the struct expected by the index endpoint.
 type IndexRequest struct {
@@ -27,6 +29,7 @@ type Coredump struct {
 	Hostname       string    `json:"hostname"`
 	ExecutablePath string    `json:"executable_path"`
 	BinaryHash     string    `json:"binary_hash"`
+	Analyzed       bool      `json:"analyzed"`
 }
 
 // Error type for API return values.

@@ -137,6 +137,7 @@ func (r *indexRequest) indexCore(i bleve.Index) {
 		Hostname:       r.Hostname,
 		ExecutablePath: r.ExecutablePath,
 		BinaryHash:     r.BinaryHash,
+		Analyzed:       false,
 	})
 	if err != nil {
 		r.err = wrap(err, "indexing core")

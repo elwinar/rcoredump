@@ -62,6 +62,7 @@ type service struct {
 	router   *httprouter.Router
 	stack    *negroni.Negroni
 	index    bleve.Index
+	queue    chan string
 }
 
 // configure read and validate the configuration of the service and populate
@@ -118,6 +119,7 @@ func (s *service) init() (err error) {
 	s.router.POST("/cores", s.indexCore)
 	s.router.GET("/cores", s.searchCore)
 	s.router.GET("/cores/:uid", s.getCore)
+	s.router.POST("/cores/:uid/_analyze", s.analyzeCore)
 
 	s.router.HEAD("/binaries/:hash", s.lookupBinary)
 	s.router.GET("/binaries/:hash", s.getBinary)
@@ -144,6 +146,36 @@ func (s *service) init() (err error) {
 	}
 	if err != nil {
 		return fmt.Errorf(`opening index: %w`, err)
+	}
+
+	// Analysis channel and routines.
+	s.queue = make(chan string)
+	go func() {
+		for uid := range s.queue {
+			s.analyze(uid)
+		}
+	}()
+
+	query := bleve.NewBoolFieldQuery(false)
+	query.SetField("analyzed")
+
+	req := bleve.NewSearchRequest(query)
+	req.Fields = []string{"uid"}
+
+	res, err := s.index.Search(req)
+	if err != nil {
+		s.logger.Error("initializing analysis", "err", err)
+		return nil
+	}
+
+	for _, d := range res.Hits {
+		uid, ok := d.Fields["uid"].(string)
+		if !ok {
+			s.logger.Error("initializing analysis", "err", fmt.Errorf("uid field for document %s isn't a string", d.ID))
+			continue
+		}
+
+		s.queue <- uid
 	}
 
 	return nil
@@ -196,6 +228,35 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 		"hostname":   req.Hostname,
 		"executable": req.ExecutablePath,
 	}).Inc()
+
+	s.queue <- req.uid
+}
+
+// analyzeCore handle the requests for re-analyzing a particular core. It
+// should be useful when new features are implemented to re-analyze already
+// existing cores and update them.
+func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	uid := p.ByName("uid")
+
+	d, err := s.index.Document(uid)
+	if err != nil {
+		s.logger.Error("analyzing", "uid", uid, "err", err)
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if d == nil {
+		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
+		return
+	}
+
+	s.queue <- uid
+}
+
+// analyze do the actual analysis of a core dump: language detection, strack
+// trace extraction, etc.
+func (s *service) analyze(uid string) {
+	s.logger.Debug("analyzing core", "uid", uid)
 }
 
 // searchCore handle the requests to search cores matching a number of parameters.
