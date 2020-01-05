@@ -28,6 +28,7 @@ import (
 	"github.com/urfave/negroni"
 )
 
+// main is tasked to bootstrap the service and notify of termination signals.
 func main() {
 	var s service
 	s.configure()
@@ -61,6 +62,8 @@ type service struct {
 	index    bleve.Index
 }
 
+// configure read and validate the configuration of the service and populate
+// the appropriate fields.
 func (s *service) configure() {
 	fs := flag.NewFlagSet("rcoredumpd", flag.ExitOnError)
 	fs.Usage = func() {
@@ -73,6 +76,9 @@ func (s *service) configure() {
 	conf.Parse(fs, "conf")
 }
 
+// init does the actual bootstraping of the service, once the configuration is
+// read. It encompass any start-up task like ensuring the storage directories
+// exist, initializing the index if needed, registering the endpoints, etc.
 func (s *service) init() (err error) {
 	// Logger
 	s.logger = log15.New()
@@ -109,7 +115,6 @@ func (s *service) init() (err error) {
 
 	s.router.POST("/cores", s.indexCore)
 	s.router.GET("/cores", s.searchCore)
-	s.router.HEAD("/cores/:uid", s.lookupCore)
 	s.router.GET("/cores/:uid", s.getCore)
 
 	s.router.HEAD("/binaries/:hash", s.lookupBinary)
@@ -142,6 +147,7 @@ func (s *service) init() (err error) {
 	return nil
 }
 
+// run does the actual running of the service until the context is closed.
 func (s *service) run(ctx context.Context) {
 	server := &http.Server{
 		Addr:    s.bind,
@@ -162,6 +168,11 @@ func (s *service) run(ctx context.Context) {
 	s.logger.Info("stopping")
 }
 
+// indexCore handle the requests for adding cores to the service. It exposes a
+// prometheus metric for monitoring its activity, and only deals with storing
+// the core and indexing the immutable information about it. Once done, it send
+// the UID of the core in the analysis channel for the analyzis routine to pick
+// it up.
 func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	req := newIndexRequest(r, s.logger)
 	defer req.close()
@@ -175,7 +186,7 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 
 	if req.err != nil {
 		s.logger.Error("indexing", "uid", req.uid, "err", req.err)
-		write(w, http.StatusInternalServerError, rcoredump.Error{Err: req.err.Error()})
+		writeError(w, http.StatusInternalServerError, req.err)
 		return
 	}
 
@@ -185,6 +196,7 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 	}).Inc()
 }
 
+// searchCore handle the requests to search cores matching a number of parameters.
 func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var err error
 
@@ -208,7 +220,7 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 	if len(size) != 0 {
 		req.Size, err = strconv.Atoi(size)
 		if err != nil {
-			write(w, http.StatusBadRequest, rcoredump.Error{Err: fmt.Sprintf(`invalid size parameter: %s`, err.Error())})
+			writeError(w, http.StatusBadRequest, wrap(err, "invalid size parameter"))
 			return
 		}
 	} else {
@@ -217,33 +229,18 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 
 	res, err := s.index.Search(req)
 	if err != nil {
-		write(w, http.StatusBadRequest, rcoredump.Error{Err: err.Error()})
+		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
 	write(w, http.StatusOK, res)
 }
 
-func (s *service) lookupCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	_, err := os.Stat(filepath.Join(s.dir, "cores", p.ByName("uid")))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		s.logger.Warn("looking up core", "uid", p.ByName("uid"), "err", err)
-		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
-		return
-	}
-
-	if err != nil {
-		write(w, http.StatusNotFound, rcoredump.Error{Err: err.Error()})
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
+// getCore handles the requests to get the actual core dump file.
 func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	f, err := os.Open(filepath.Join(s.dir, "cores", p.ByName("uid")))
 	if err != nil {
-		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	defer f.Close()
@@ -252,26 +249,29 @@ func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.P
 	io.Copy(w, f)
 }
 
+// lookupBinary handles the requests to check if a binary matching the given
+// hash actually exists. It doesn't return anything (except in case of error).
 func (s *service) lookupBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	_, err := os.Stat(filepath.Join(s.dir, "binaries", p.ByName("hash")))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		s.logger.Warn("looking up binary", "hash", p.ByName("hash"), "err", err)
-		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	if err != nil {
-		write(w, http.StatusNotFound, rcoredump.Error{Err: err.Error()})
+		writeError(w, http.StatusNotFound, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
+// getBinary handles the requests to get the actual binary.
 func (s *service) getBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	f, err := os.Open(filepath.Join(s.dir, "binaries", p.ByName("hash")))
 	if err != nil {
-		write(w, http.StatusInternalServerError, rcoredump.Error{Err: err.Error()})
+		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 	defer f.Close()
@@ -288,6 +288,11 @@ func write(w http.ResponseWriter, status int, payload interface{}) {
 		panic(err)
 	}
 	_, _ = w.Write(raw)
+}
+
+// write an error and a status to the ResponseWriter.
+func writeError(w http.ResponseWriter, status int, err error) {
+	write(w, status, rcoredump.Error{Err: err.Error()})
 }
 
 // wrap an error using the provided message and arguments.
