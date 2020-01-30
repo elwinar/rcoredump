@@ -88,6 +88,7 @@ func (s *service) init() (err error) {
 	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
 
 	// Data dir
+	s.logger.Debug("creating data directories")
 	for _, dir := range []string{
 		s.dir,
 		filepath.Join(s.dir, "binaries"),
@@ -100,6 +101,7 @@ func (s *service) init() (err error) {
 	}
 
 	// Prometheus metrics
+	s.logger.Debug("registering metrics")
 	s.received = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "rcoredumpd_received_total",
 		Help: "number of core dump received",
@@ -107,12 +109,14 @@ func (s *service) init() (err error) {
 	prometheus.MustRegister(s.received)
 
 	// Static files
+	s.logger.Debug("fetching static files")
 	public, err := fs.New()
 	if err != nil {
 		return fmt.Errorf(`retrieving assets: %w`, err)
 	}
 
 	// API Routes
+	s.logger.Debug("registering routes")
 	s.router = httprouter.New()
 	s.router.NotFound = http.FileServer(public)
 
@@ -129,6 +133,7 @@ func (s *service) init() (err error) {
 	// Middleware stack
 	s.stack = negroni.New()
 	s.stack.Use(negroni.NewRecovery())
+	s.stack.Use(negroni.HandlerFunc(s.logRequest))
 	s.stack.Use(cors.Default())
 	s.stack.UseHandler(s.router)
 
@@ -140,8 +145,10 @@ func (s *service) init() (err error) {
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
+		s.logger.Debug("creating index", "path", indexPath)
 		s.index, err = bleve.New(indexPath, bleve.NewIndexMapping())
 	} else {
+		s.logger.Debug("opening index", "path", indexPath)
 		s.index, err = bleve.Open(indexPath)
 	}
 	if err != nil {
@@ -149,6 +156,7 @@ func (s *service) init() (err error) {
 	}
 
 	// Analysis channel and routines.
+	s.logger.Debug("starting analysis queue")
 	s.queue = make(chan string)
 	go func() {
 		for uid := range s.queue {
@@ -168,14 +176,17 @@ func (s *service) init() (err error) {
 		return nil
 	}
 
-	for _, d := range res.Hits {
-		uid, ok := d.Fields["uid"].(string)
-		if !ok {
-			s.logger.Error("initializing analysis", "err", fmt.Errorf("uid field for document %s isn't a string", d.ID))
-			continue
-		}
+	if len(res.Hits) != 0 {
+		s.logger.Debug("found leftover dumps to analyze", "count", len(res.Hits))
+		for _, d := range res.Hits {
+			uid, ok := d.Fields["uid"].(string)
+			if !ok {
+				s.logger.Error("initializing analysis", "err", fmt.Errorf("uid field for document %s isn't a string", d.ID))
+				continue
+			}
 
-		s.queue <- uid
+			s.queue <- uid
+		}
 	}
 
 	return nil
@@ -200,6 +211,22 @@ func (s *service) run(ctx context.Context) {
 		s.logger.Error("closing server", "err", err)
 	}
 	s.logger.Info("stopping")
+}
+
+// logRequest is the logging middleware for the HTTP server.
+func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	start := time.Now()
+
+	next(rw, r)
+
+	res := rw.(negroni.ResponseWriter)
+	s.logger.Info("request",
+		"started_at", start,
+		"duration", time.Since(start),
+		"method", r.Method,
+		"path", r.URL.Path,
+		"status", res.Status(),
+	)
 }
 
 // indexCore handle the requests for adding cores to the service. It exposes a
@@ -230,6 +257,8 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 	}).Inc()
 
 	s.queue <- req.uid
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // analyzeCore handle the requests for re-analyzing a particular core. It
@@ -251,6 +280,8 @@ func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprout
 	}
 
 	s.queue <- uid
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // analyze do the actual analysis of a core dump: language detection, strack
