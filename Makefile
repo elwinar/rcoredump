@@ -21,6 +21,7 @@ build: web rcoredumpd rcoredump monkey ## Build all targets
 
 .PHONY: web
 web: ## Build the web interface
+	rm -rf ./build/web
 	npm run build
 	rm -rf ./bin/rcoredumpd/internal
 	statik -f -src build/web -dest ./bin/rcoredumpd/ -p internal
