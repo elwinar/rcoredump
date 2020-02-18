@@ -28,6 +28,8 @@ import (
 	"github.com/urfave/negroni"
 )
 
+var Version = "N/C"
+
 // main is tasked to bootstrap the service and notify of termination signals.
 func main() {
 	var s service
@@ -65,7 +67,7 @@ type service struct {
 // configure read and validate the configuration of the service and populate
 // the appropriate fields.
 func (s *service) configure() {
-	fs := flag.NewFlagSet("rcoredumpd", flag.ExitOnError)
+	fs := flag.NewFlagSet("rcoredumpd-"+Version, flag.ExitOnError)
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "Usage of rcoredumpd:")
 		fs.PrintDefaults()

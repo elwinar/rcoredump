@@ -25,6 +25,8 @@ import (
 	"github.com/inconshreveable/log15"
 )
 
+var Version = "N/C"
+
 func main() {
 	var s service
 	s.configure()
@@ -57,7 +59,7 @@ type service struct {
 }
 
 func (s *service) configure() {
-	fs := flag.NewFlagSet("rcoredump", flag.ExitOnError)
+	fs := flag.NewFlagSet("rcoredump-"+Version, flag.ExitOnError)
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "Usage of rcoredump: rcoredump [options] <executable path> <timestamp of dump>")
 		fs.PrintDefaults()
