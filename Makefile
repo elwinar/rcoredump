@@ -17,6 +17,7 @@ build: web rcoredumpd rcoredump monkey
 .PHONY: web
 web:
 	npm run build
+	rm -rf ./bin/rcoredumpd/internal
 	statik -f -src build/web -dest ./bin/rcoredumpd/ -p internal
 
 .PHONY: rcoredumpd

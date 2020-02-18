@@ -2,5 +2,4 @@
 /build
 /run
 /.cache
-/bin/rcoredumpd/internal
 /config.js
