@@ -35,8 +35,9 @@ rcoredump: ## Build the client
 	go build -o ${build_dir} ${bin_dir}/rcoredump
 
 .PHONY: monkey
-monkey: ## Build the test crasher
-	go build -o ${build_dir} ${bin_dir}/monkey
+monkey: ## Build the test crashers
+	go build -o ${build_dir} ${bin_dir}/monkey-go
+	gcc -o ${build_dir}/monkey-c ${bin_dir}/monkey-c/*.c
 
 targets=linux/amd64,linux/386
 ldflags="-X main.VERSION=`git describe --tags`"
