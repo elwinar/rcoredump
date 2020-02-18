@@ -30,9 +30,15 @@ type Coredump struct {
 	ExecutablePath string    `json:"executable_path"`
 	BinaryHash     string    `json:"binary_hash"`
 	Analyzed       bool      `json:"analyzed"`
+	Lang           string    `json:"lang"`
 }
 
 // Error type for API return values.
 type Error struct {
 	Err string `json:"error"`
 }
+
+const (
+	LangC  = "C"
+	LangGo = "Go"
+)

@@ -287,7 +287,19 @@ func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprout
 // analyze do the actual analysis of a core dump: language detection, strack
 // trace extraction, etc.
 func (s *service) analyze(uid string) {
-	s.logger.Debug("analyzing core", "uid", uid)
+	p := newAnalyzeProcess(uid, s.logger)
+
+	defer p.clean()
+
+	p.findCore(s.index)
+	p.loadELF(filepath.Join(s.dir, "binaries"))
+	p.detectLanguage()
+	p.indexResults(s.index)
+
+	if p.err != nil {
+		s.logger.Error("analyzing", "core", uid, "err", p.err)
+		return
+	}
 }
 
 // searchCore handle the requests to search cores matching a number of parameters.
