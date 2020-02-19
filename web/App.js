@@ -106,6 +106,7 @@ function Table(props) {
 					<th>date</th>
 					<th>hostname</th>
 					<th>executable</th>
+					<th>lang</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -116,6 +117,7 @@ function Table(props) {
 						<td>{x.date}</td>
 						<td>{x.hostname}</td>
 						<td>{x.executable_path}</td>
+						<td>{x.lang}</td>
 						<td><a href={`${document.config.baseURL}/cores/${x.uid}`}>core</a> <a href={`${document.config.baseURL}/binaries/${x.binary_hash}`}>binary</a></td>
 					</tr>);
 				})}

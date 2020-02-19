@@ -62,6 +62,7 @@ type service struct {
 	router   *httprouter.Router
 	stack    *negroni.Negroni
 	index    bleve.Index
+	queue    chan string
 }
 
 // configure read and validate the configuration of the service and populate
@@ -87,6 +88,7 @@ func (s *service) init() (err error) {
 	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
 
 	// Data dir
+	s.logger.Debug("creating data directories")
 	for _, dir := range []string{
 		s.dir,
 		filepath.Join(s.dir, "binaries"),
@@ -99,6 +101,7 @@ func (s *service) init() (err error) {
 	}
 
 	// Prometheus metrics
+	s.logger.Debug("registering metrics")
 	s.received = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "rcoredumpd_received_total",
 		Help: "number of core dump received",
@@ -106,18 +109,21 @@ func (s *service) init() (err error) {
 	prometheus.MustRegister(s.received)
 
 	// Static files
+	s.logger.Debug("fetching static files")
 	public, err := fs.New()
 	if err != nil {
 		return fmt.Errorf(`retrieving assets: %w`, err)
 	}
 
 	// API Routes
+	s.logger.Debug("registering routes")
 	s.router = httprouter.New()
 	s.router.NotFound = http.FileServer(public)
 
 	s.router.POST("/cores", s.indexCore)
 	s.router.GET("/cores", s.searchCore)
 	s.router.GET("/cores/:uid", s.getCore)
+	s.router.POST("/cores/:uid/_analyze", s.analyzeCore)
 
 	s.router.HEAD("/binaries/:hash", s.lookupBinary)
 	s.router.GET("/binaries/:hash", s.getBinary)
@@ -127,6 +133,7 @@ func (s *service) init() (err error) {
 	// Middleware stack
 	s.stack = negroni.New()
 	s.stack.Use(negroni.NewRecovery())
+	s.stack.Use(negroni.HandlerFunc(s.logRequest))
 	s.stack.Use(cors.Default())
 	s.stack.UseHandler(s.router)
 
@@ -138,12 +145,48 @@ func (s *service) init() (err error) {
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
+		s.logger.Debug("creating index", "path", indexPath)
 		s.index, err = bleve.New(indexPath, bleve.NewIndexMapping())
 	} else {
+		s.logger.Debug("opening index", "path", indexPath)
 		s.index, err = bleve.Open(indexPath)
 	}
 	if err != nil {
 		return fmt.Errorf(`opening index: %w`, err)
+	}
+
+	// Analysis channel and routines.
+	s.logger.Debug("starting analysis queue")
+	s.queue = make(chan string)
+	go func() {
+		for uid := range s.queue {
+			s.analyze(uid)
+		}
+	}()
+
+	query := bleve.NewBoolFieldQuery(false)
+	query.SetField("analyzed")
+
+	req := bleve.NewSearchRequest(query)
+	req.Fields = []string{"uid"}
+
+	res, err := s.index.Search(req)
+	if err != nil {
+		s.logger.Error("initializing analysis", "err", err)
+		return nil
+	}
+
+	if len(res.Hits) != 0 {
+		s.logger.Debug("found leftover dumps to analyze", "count", len(res.Hits))
+		for _, d := range res.Hits {
+			uid, ok := d.Fields["uid"].(string)
+			if !ok {
+				s.logger.Error("initializing analysis", "err", fmt.Errorf("uid field for document %s isn't a string", d.ID))
+				continue
+			}
+
+			s.queue <- uid
+		}
 	}
 
 	return nil
@@ -168,6 +211,22 @@ func (s *service) run(ctx context.Context) {
 		s.logger.Error("closing server", "err", err)
 	}
 	s.logger.Info("stopping")
+}
+
+// logRequest is the logging middleware for the HTTP server.
+func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	start := time.Now()
+
+	next(rw, r)
+
+	res := rw.(negroni.ResponseWriter)
+	s.logger.Info("request",
+		"started_at", start,
+		"duration", time.Since(start),
+		"method", r.Method,
+		"path", r.URL.Path,
+		"status", res.Status(),
+	)
 }
 
 // indexCore handle the requests for adding cores to the service. It exposes a
@@ -196,6 +255,51 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 		"hostname":   req.Hostname,
 		"executable": req.ExecutablePath,
 	}).Inc()
+
+	s.queue <- req.uid
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// analyzeCore handle the requests for re-analyzing a particular core. It
+// should be useful when new features are implemented to re-analyze already
+// existing cores and update them.
+func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	uid := p.ByName("uid")
+
+	d, err := s.index.Document(uid)
+	if err != nil {
+		s.logger.Error("analyzing", "uid", uid, "err", err)
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if d == nil {
+		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
+		return
+	}
+
+	s.queue <- uid
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// analyze do the actual analysis of a core dump: language detection, strack
+// trace extraction, etc.
+func (s *service) analyze(uid string) {
+	p := newAnalyzeProcess(uid, s.logger)
+
+	defer p.clean()
+
+	p.findCore(s.index)
+	p.loadELF(filepath.Join(s.dir, "binaries"))
+	p.detectLanguage()
+	p.indexResults(s.index)
+
+	if p.err != nil {
+		s.logger.Error("analyzing", "core", uid, "err", p.err)
+		return
+	}
 }
 
 // searchCore handle the requests to search cores matching a number of parameters.
