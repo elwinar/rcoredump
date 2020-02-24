@@ -4,6 +4,8 @@ import (
 	"debug/elf"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/blevesearch/bleve"
@@ -98,6 +100,41 @@ func (p *analyzeProcess) detectLanguage() {
 		}
 	}
 	p.log.Debug("detected language", "lang", p.core.Lang)
+}
+
+func (p *analyzeProcess) extractStackTrace(binpath, corepath string) {
+	if p.err != nil {
+		return
+	}
+
+	binfile := filepath.Join(binpath, p.core.BinaryHash)
+	corefile := filepath.Join(corepath, p.core.UID)
+	p.log.Debug("extracting stack trace")
+
+	var out []byte
+	var err error
+	switch p.core.Lang {
+	case rcoredump.LangC:
+		out, err = exec.Command("gdb", "--nx", "--ex", "bt", "--batch", binfile, corefile).Output()
+	case rcoredump.LangGo:
+		cmd, err := ioutil.TempFile("", "")
+		if err != nil {
+			p.err = wrap(err, "writing delve command file")
+			return
+		}
+		cmd.WriteString("bt\nq\n")
+		cmd.Close()
+
+		out, err = exec.Command("dlv", "core", binfile, corefile, "--init", cmd.Name()).Output()
+	}
+
+	if err != nil {
+		p.err = wrap(err, "extracting stack trace")
+		return
+	}
+
+	p.core.Trace = string(out)
+	p.log.Debug("extracted stack trace", "stack", p.core.Trace)
 }
 
 func (p *analyzeProcess) indexResults(i bleve.Index) {

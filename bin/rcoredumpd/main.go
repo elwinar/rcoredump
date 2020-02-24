@@ -301,6 +301,7 @@ func (s *service) analyze(uid string) {
 	p.findCore(s.index)
 	p.loadELF(filepath.Join(s.dir, "binaries"))
 	p.detectLanguage()
+	p.extractStackTrace(filepath.Join(s.dir, "binaries"), filepath.Join(s.dir, "cores"))
 	p.indexResults(s.index)
 
 	if p.err != nil {
