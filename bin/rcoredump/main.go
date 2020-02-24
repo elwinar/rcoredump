@@ -49,11 +49,12 @@ func main() {
 }
 
 type service struct {
-	dest       string
-	src        string
-	sendBinary bool
-	syslog     bool
-	args       []string
+	dest         string
+	src          string
+	sendBinary   bool
+	syslog       bool
+	printVersion bool
+	args         []string
 
 	logger log15.Logger
 }
@@ -68,6 +69,7 @@ func (s *service) configure() {
 	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
 	fs.BoolVar(&s.sendBinary, "send-binary", true, "send the binary along with the dump")
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
+	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredum")
 	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 
@@ -75,6 +77,11 @@ func (s *service) configure() {
 }
 
 func (s *service) init() error {
+	if s.printVersion {
+		fmt.Println("rcoredump", Version)
+		os.Exit(0)
+	}
+
 	s.logger = log15.New()
 
 	format := log15.LogfmtFormat()

@@ -1,6 +1,7 @@
 root = $(shell pwd)
 build_dir = $(root)/build
 bin_dir = $(root)/bin
+ldflags="-X main.Version=`git describe --tags`"
 
 .PHONY: help
 help: ## Get help
@@ -28,11 +29,11 @@ web: ## Build the web interface
 
 .PHONY: rcoredumpd
 rcoredumpd: ## Build the server
-	go build -o ${build_dir} ${bin_dir}/rcoredumpd
+	go build -o ${build_dir} -ldflags $(ldflags) ${bin_dir}/rcoredumpd
 
 .PHONY: rcoredump
 rcoredump: ## Build the client
-	go build -o ${build_dir} ${bin_dir}/rcoredump
+	go build -o ${build_dir} -ldflags $(ldflags) ${bin_dir}/rcoredump
 
 .PHONY: monkey
 monkey: ## Build the test crashers
@@ -40,7 +41,6 @@ monkey: ## Build the test crashers
 	gcc -o ${build_dir}/monkey-c ${bin_dir}/monkey-c/*.c
 
 targets=linux/amd64,linux/386
-ldflags="-X main.VERSION=`git describe --tags`"
 pkg=github.com/elwinar/rcoredump/bin
 
 .PHONY: release

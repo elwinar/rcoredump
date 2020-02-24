@@ -53,9 +53,10 @@ func main() {
 }
 
 type service struct {
-	bind string
-	dir  string
-	log  string
+	bind         string
+	dir          string
+	log          string
+	printVersion bool
 
 	logger   log15.Logger
 	received *prometheus.CounterVec
@@ -75,6 +76,7 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
 	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
+	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 }
@@ -83,6 +85,11 @@ func (s *service) configure() {
 // read. It encompass any start-up task like ensuring the storage directories
 // exist, initializing the index if needed, registering the endpoints, etc.
 func (s *service) init() (err error) {
+	if s.printVersion {
+		fmt.Println("rcoredumpd", Version)
+		os.Exit(0)
+	}
+
 	// Logger
 	s.logger = log15.New()
 	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
