@@ -1,6 +1,7 @@
 root = $(shell pwd)
 build_dir = $(root)/build
 bin_dir = $(root)/bin
+release_dir = $(root)/release
 ldflags="-X main.Version=`git describe --tags`"
 
 .PHONY: help
@@ -22,14 +23,14 @@ build: web rcoredumpd rcoredump monkey ## Build all targets
 
 .PHONY: serve
 serve: ## Run the web interface
-	npm run serve
+	./node_modules/.bin/parcel -d ${build_dir}/web/ web/index_dev.html --host 0.0.0.0
 
 .PHONY: web
 web: ## Build the web interface
-	rm -rf ./build/web
-	npm run build
-	rm -rf ./bin/rcoredumpd/internal
-	statik -f -src build/web -dest ./bin/rcoredumpd/ -p internal
+	rm -rf ${build_dir}/web
+	./node_modules/.bin/parcel build -d ${build_dir}/web/ web/index.html
+	rm -rf ${bin_dir}/rcoredumpd/internal
+	statik -f -src ${build_dir}/web -dest ${bin_dir}/rcoredumpd/ -p internal
 
 .PHONY: rcoredumpd
 rcoredumpd: ## Build the server
@@ -49,6 +50,7 @@ pkg=github.com/elwinar/rcoredump/bin
 
 .PHONY: release
 release: ## Build the release files
-	xgo --targets=$(targets) --ldflags=$(ldflags) $(pkg)/rcoredumpd
-	xgo --targets=$(targets) --ldflags=$(ldflags) $(pkg)/rcoredump
+	rm -rf ${release_dir}
+	xgo --dest=${release_dir} --targets=$(targets) --ldflags=$(ldflags) $(pkg)/rcoredumpd
+	xgo --dest=${release_dir} --targets=$(targets) --ldflags=$(ldflags) $(pkg)/rcoredump
 

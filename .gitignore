@@ -1,5 +1,7 @@
 /node_modules
 /build/*
+/release/*
 /run
 /.cache
 /config.js
+/rcoredumpd.conf

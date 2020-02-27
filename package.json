@@ -14,9 +14,5 @@
     "parcel-bundler": "^1.12.4",
     "postcss-modules": "^1.4.1",
     "sass": "^1.23.1"
-  },
-  "scripts": {
-    "build": "parcel build -d ./build/web/ web/index.html",
-    "serve": "parcel -d ./build/web/ web/index_dev.html --host 0.0.0.0"
   }
 }
