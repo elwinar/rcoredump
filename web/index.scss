@@ -1,108 +1,104 @@
-:global {
-	@import url('https://fonts.googleapis.com/css?family=Montserrat:300,500&display=swap');
-	@import url('normalize.css/normalize.css');
+@import url('https://fonts.googleapis.com/css?family=Montserrat:300,500&display=swap');
+@import url('normalize.css/normalize.css');
 
-	$primary: #e56800;
-	$primary-light: #FF9B33;
-	$background: #f0efe7;
-	$background-light: #fcfcfa;
-	$background-dark: #BDBCB4;
+$primary: #e56800;
+$primary-light: #FF9B33;
+$background: #f0efe7;
+$background-light: #fcfcfa;
+$background-dark: #BDBCB4;
 
-	body {
-		max-width: 960px;
-		margin: 0 auto;
-		padding: 0 1em;
-		font-family: Montserrat, sans-serif;
-		font-weight: 300;
-		background: $background;
+body {
+	max-width: 960px;
+	margin: 0 auto;
+	padding: 0 1em;
+	font-family: Montserrat, sans-serif;
+	font-weight: 300;
+	background: $background;
+}
+
+body * {
+	margin: 1em 0;
+	box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+	color: $primary;
+	margin: 0;
+}
+
+h1, h2 {
+	font-weight: 500;
+}
+
+h3, h4, h5, h6 {
+	font-weight: 300;
+}
+
+input[type="text"], button {
+	appearance: none;
+	cursor: pointer;
+	background: $background-light;
+	border-radius: 0;
+	border: 1px solid $background-dark;
+	padding: 0.5em;
+}
+
+input[type="text"], button[type="button"] {
+	&:focus {
+		border-color: $primary;
 	}
 
-	body * {
-		margin: 1em 0;
-		box-sizing: border-box;
+	&[dirty] {
+		border-color: blue;
+	}
+}
+
+input[type="radio"] {
+	display: none;
+
+	& + label {
+		margin: 0 0.5em;
 	}
 
-	h1, h2, h3, h4, h5, h6 {
+	&:checked + label {
+		text-decoration: underline;
+	}
+}
+
+table {
+	border-collapse: collapse;
+
+	thead {
+		border-bottom: 2px solid $background-dark;
+
+		th {
+			text-align: left;
+			text-transform: capitalize;
+			font-weight: 500;
+			font-variant: small-caps;
+			padding: 0.75em 0.5em;
+		}
+	}
+
+	tbody {
+		tr {
+			border-bottom: 1px solid $background-dark;
+
+			td {
+				padding: 0.75em 0.5em;
+				overflow: hidden;
+			}
+
+		}
+	}
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+
+	&:hover {
 		color: $primary;
-		margin: 0;
-	}
-
-	h1, h2 {
-		font-weight: 500;
-	}
-
-	h3, h4, h5, h6 {
-		font-weight: 300;
-	}
-
-	input[type="text"], button {
-		appearance: none;
-		cursor: pointer;
-		background: $background-light;
-		border-radius: 0;
-		border: 1px solid $background-dark;
-		padding: 0.5em;
-	}
-
-	input[type="text"], button[type="button"] {
-		&:focus {
-			border-color: $primary;
-		}
-
-		&[dirty] {
-			border-color: blue;
-		}
-	}
-
-	input[type="radio"] {
-		display: none;
-
-		& + label {
-			margin: 0 0.5em;
-		}
-
-		&:checked + label {
-			text-decoration: underline;
-		}
-	}
-
-	table {
-		border-collapse: collapse;
-		border-bottom: 1px solid $background-dark;
-
-		thead {
-			border-bottom: 2px solid $background-dark;
-
-			th {
-				text-align: left;
-				text-transform: capitalize;
-				font-weight: 500;
-				font-variant: small-caps;
-				padding: 0.5em;
-			}
-		}
-
-		tbody {
-			tr {
-				td {
-					padding: 0.5em;
-					overflow: hidden;
-				}
-			}
-
-			tr:nth-child(odd) {
-				background: $background-light;
-			}
-		}
-	}
-
-	a {
-		color: inherit;
-		text-decoration: none;
-
-		&:hover {
-			color: $primary;
-			text-decoration: underline;
-		}
+		text-decoration: underline;
 	}
 }

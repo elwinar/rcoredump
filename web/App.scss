@@ -4,6 +4,7 @@
 .Searchbar {
 	input[name="q"] {
 		width: 100%;
+		cursor: text;
 
 		& + p {
 			text-align: right;
@@ -26,4 +27,29 @@
 
 .Table {
 	width: 100%;
+
+	.Toggle {
+		cursor: pointer;
+	}
+
+	.Detail {
+		& > td {
+			padding: 0 1em;
+		}
+	}
+}
+
+.Description {
+	& > * {
+		display: inline-block;
+		margin: 0;
+	}
+
+	& > *:nth-child(odd) {
+		width: 20%;
+	}
+
+	& > *:nth-child(even) {
+		width: 75%;
+	}
 }

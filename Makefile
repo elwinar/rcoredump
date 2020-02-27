@@ -20,6 +20,10 @@ install: ## Install the dependencies needed for building the package
 .PHONY: build
 build: web rcoredumpd rcoredump monkey ## Build all targets
 
+.PHONY: serve
+serve: ## Run the web interface
+	npm run serve
+
 .PHONY: web
 web: ## Build the web interface
 	rm -rf ./build/web

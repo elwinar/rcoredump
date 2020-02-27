@@ -31,6 +31,7 @@ type Coredump struct {
 	BinaryHash     string    `json:"binary_hash"`
 	Analyzed       bool      `json:"analyzed"`
 	Lang           string    `json:"lang"`
+	Trace          string    `json:"trace"`
 }
 
 // Error type for API return values.
