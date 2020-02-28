@@ -53,6 +53,7 @@ type service struct {
 	src          string
 	sendBinary   bool
 	syslog       bool
+	filelog      string
 	printVersion bool
 	args         []string
 
@@ -69,7 +70,8 @@ func (s *service) configure() {
 	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
 	fs.BoolVar(&s.sendBinary, "send-binary", true, "send the binary along with the dump")
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
-	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredum")
+	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into ('-' for stdout)")
+	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredump")
 	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 
@@ -86,14 +88,16 @@ func (s *service) init() error {
 
 	format := log15.LogfmtFormat()
 	var handler log15.Handler
+	var err error
 	if s.syslog {
-		var err error
 		handler, err = log15.SyslogHandler(syslog.LOG_KERN, "rcoredump", format)
-		if err != nil {
-			return err
-		}
+	} else if s.filelog == "-" {
+		handler, err = log15.StreamHandler(os.Stdout, format), nil
 	} else {
-		handler = log15.StreamHandler(os.Stdout, format)
+		handler, err = log15.FileHandler(s.filelog, format)
+	}
+	if err != nil {
+		return err
 	}
 	s.logger.SetHandler(handler)
 
@@ -101,6 +105,8 @@ func (s *service) init() error {
 }
 
 func (s *service) run(ctx context.Context) {
+	s.logger.Debug("starting")
+
 	if len(s.args) != 2 {
 		s.logger.Error("unexpected number of arguments on command-line", "want", 2, "got", len(s.args))
 		return
@@ -114,6 +120,7 @@ func (s *service) run(ctx context.Context) {
 		return
 	}
 	hostname, _ := os.Hostname()
+	s.logger.Debug("parsed arguments")
 
 	// Look up the binary in the server by using its sha1 hash. The
 	// operation can fail in which case we will continue and consider that
@@ -127,6 +134,7 @@ func (s *service) run(ctx context.Context) {
 		s.logger.Error("looking up binary", "err", err)
 	}
 	var sendBinary = s.sendBinary && !found
+	s.logger.Debug("hashed binary")
 
 	// We will use chunked transfer encoding to avoid keeping the whole
 	// dump in memory more than necessary. We will do this by giving the
@@ -144,6 +152,7 @@ func (s *service) run(ctx context.Context) {
 		w := gzip.NewWriter(pw)
 		defer w.Close()
 
+		s.logger.Debug("sending header")
 		err := json.NewEncoder(w).Encode(rcoredump.IndexRequest{
 			Date:           time.Unix(timestamp, 0),
 			Hostname:       hostname,
@@ -165,6 +174,7 @@ func (s *service) run(ctx context.Context) {
 		// Send the core.
 		w.Reset(pw)
 
+		s.logger.Debug("sending core")
 		err = s.sendFile(w, s.src)
 		if err != nil {
 			s.logger.Error("sending core", "err", err)
@@ -185,6 +195,7 @@ func (s *service) run(ctx context.Context) {
 		// Send the binary.
 		w.Reset(pw)
 
+		s.logger.Debug("sending binary")
 		err = s.sendFile(w, executable)
 		if err != nil {
 			s.logger.Error("sending binary", "err", err)
@@ -199,6 +210,7 @@ func (s *service) run(ctx context.Context) {
 	}()
 
 	// Send the request by giving it the reader end of the pipe.
+	s.logger.Debug("sending request")
 	res, err := http.Post(fmt.Sprintf("%s/cores", s.dest), "application/octet-stream", pr)
 	if err != nil {
 		s.logger.Error("sending core", "err", err)
@@ -209,12 +221,15 @@ func (s *service) run(ctx context.Context) {
 		res.Body.Close()
 	}()
 
+	s.logger.Debug("received response")
 	if res.StatusCode != http.StatusOK {
 		var err rcoredump.Error
 		_ = json.NewDecoder(res.Body).Decode(&err)
 		s.logger.Error("unexpected status", "err", err.Err)
 		return
 	}
+
+	s.logger.Debug("done")
 }
 
 func (s *service) hashBinary(path string) (string, error) {
