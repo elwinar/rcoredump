@@ -71,7 +71,7 @@ type service struct {
 func (s *service) configure() {
 	fs := flag.NewFlagSet("rcoredumpd-"+Version, flag.ExitOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage of rcoredumpd:")
+		fmt.Fprintln(fs.Output(), "Usage of rcoredumpd: rcoredumpd [options]")
 		fs.PrintDefaults()
 	}
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
