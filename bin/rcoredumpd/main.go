@@ -81,8 +81,8 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
 	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
-	fs.StringVar(&s.goAnalyzer, "go.analyzer", "dlv core {{ .Binary }} {{ .Core }} --init {{ .Dir }}/delve.cmd", "command to run to analyze Go core dumps")
-	fs.StringVar(&s.cAnalyzer, "c.analyzer", "gdb --nx --ex bt --batch {{ .Binary }} {{ .Core }}", "command to run to analyze C core dumps")
+	fs.StringVar(&s.goAnalyzer, "go.analyzer", "dlv core {{ .Executable }} {{ .Core }} --init {{ .Dir }}/delve.cmd", "command to run to analyze Go core dumps")
+	fs.StringVar(&s.cAnalyzer, "c.analyzer", "gdb --nx --ex bt --batch {{ .Executable }} {{ .Core }}", "command to run to analyze C core dumps")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
@@ -105,7 +105,7 @@ func (s *service) init() (err error) {
 	s.logger.Debug("creating data directories")
 	for _, dir := range []string{
 		s.dir,
-		binpath(s.dir, ""),
+		exepath(s.dir, ""),
 		corepath(s.dir, ""),
 	} {
 		err = os.Mkdir(dir, os.ModeDir|0774)
@@ -165,8 +165,8 @@ func (s *service) init() (err error) {
 	s.router.GET("/cores/:uid", s.getCore)
 	s.router.POST("/cores/:uid/_analyze", s.analyzeCore)
 
-	s.router.HEAD("/binaries/:hash", s.lookupBinary)
-	s.router.GET("/binaries/:hash", s.getBinary)
+	s.router.HEAD("/executables/:hash", s.lookupExecutable)
+	s.router.GET("/executables/:hash", s.getExecutable)
 
 	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
 
@@ -280,15 +280,20 @@ func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.
 // the UID of the core in the analysis channel for the analyzis routine to pick
 // it up.
 func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	req := newIndexRequest(r, s.logger)
-	defer req.close()
-
-	req.read()
-	req.readCore(filepath.Join(s.dir, "cores", req.uid))
-	if req.IncludeBinary {
-		req.readBinary(filepath.Join(s.dir, "binaries", req.BinaryHash))
+	req := &indexRequest{
+		log:   s.logger,
+		r:     r,
+		dir:   s.dir,
+		index: s.index,
 	}
-	req.indexCore(s.index)
+	req.init()
+	req.read()
+	req.readCore()
+	if req.IncludeExecutable {
+		req.readExecutable()
+	}
+	req.indexCore()
+	req.close()
 
 	if req.err != nil {
 		s.logger.Error("indexing", "uid", req.uid, "err", req.err)
@@ -332,15 +337,19 @@ func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprout
 // analyze do the actual analysis of a core dump: language detection, strack
 // trace extraction, etc.
 func (s *service) analyze(uid string) {
-	p := newAnalyzeProcess(uid, s.logger)
+	p := &analyzeProcess{
+		uid:       uid,
+		log:       s.logger,
+		index:     s.index,
+		dir:       s.dir,
+		analyzers: s.analyzers,
+	}
 
-	defer p.clean()
-
-	p.findCore(s.index)
-	p.loadELF(filepath.Join(s.dir, "binaries"))
+	p.init()
+	p.findCore()
 	p.detectLanguage()
-	p.extractStackTrace(s.dir, s.analyzers)
-	p.indexResults(s.index)
+	p.extractStackTrace()
+	p.indexResults()
 
 	if p.err != nil {
 		s.logger.Error("analyzing", "core", uid, "err", p.err)
@@ -401,12 +410,12 @@ func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.P
 	io.Copy(w, f)
 }
 
-// lookupBinary handles the requests to check if a binary matching the given
+// lookupExecutable handles the requests to check if a executable matching the given
 // hash actually exists. It doesn't return anything (except in case of error).
-func (s *service) lookupBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	_, err := os.Stat(filepath.Join(s.dir, "binaries", p.ByName("hash")))
+func (s *service) lookupExecutable(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	_, err := os.Stat(exepath(s.dir, p.ByName("hash")))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		s.logger.Warn("looking up binary", "hash", p.ByName("hash"), "err", err)
+		s.logger.Warn("looking up executable", "hash", p.ByName("hash"), "err", err)
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -419,9 +428,9 @@ func (s *service) lookupBinary(w http.ResponseWriter, r *http.Request, p httprou
 	w.WriteHeader(http.StatusOK)
 }
 
-// getBinary handles the requests to get the actual binary.
-func (s *service) getBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	f, err := os.Open(filepath.Join(s.dir, "binaries", p.ByName("hash")))
+// getExecutable handles the requests to get the actual executable.
+func (s *service) getExecutable(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	f, err := os.Open(exepath(s.dir, p.ByName("hash")))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -452,10 +461,10 @@ func wrap(err error, msg string, args ...interface{}) error {
 	return fmt.Errorf("%s: %w", fmt.Sprintf(msg, args...), err)
 }
 
-func binpath(base, bin string) string {
-	return filepath.Join(base, "binaries", bin)
+func exepath(base, file string) string {
+	return filepath.Join(base, "executables", file)
 }
 
-func corepath(base, core string) string {
-	return filepath.Join(base, "cores", core)
+func corepath(base, file string) string {
+	return filepath.Join(base, "cores", file)
 }

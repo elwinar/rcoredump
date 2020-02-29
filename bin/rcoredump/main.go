@@ -49,13 +49,13 @@ func main() {
 }
 
 type service struct {
-	dest         string
-	src          string
-	sendBinary   bool
-	syslog       bool
-	filelog      string
-	printVersion bool
-	args         []string
+	dest           string
+	src            string
+	sendExecutable bool
+	syslog         bool
+	filelog        string
+	printVersion   bool
+	args           []string
 
 	logger log15.Logger
 }
@@ -68,7 +68,7 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.dest, "dest", "http://localhost:1105", "address of the destination host")
 	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
-	fs.BoolVar(&s.sendBinary, "send-binary", true, "send the binary along with the dump")
+	fs.BoolVar(&s.sendExecutable, "send-executable", true, "send the executable along with the dump")
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
 	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into ('-' for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredump")
@@ -121,19 +121,19 @@ func (s *service) run(ctx context.Context) {
 	}
 	hostname, _ := os.Hostname()
 
-	// Look up the binary in the server by using its sha1 hash. The
+	// Look up the executable in the server by using its sha1 hash. The
 	// operation can fail in which case we will continue and consider that
-	// the binary wasn't found so we don't lose the dump.
+	// the executable wasn't found so we don't lose the dump.
 	s.logger.Debug("hashing executable")
 	var found bool
-	hash, err := s.hashBinary(executable)
-	if s.sendBinary && err == nil {
-		found, err = s.lookupBinary(hash)
+	hash, err := s.hashExecutable(executable)
+	if s.sendExecutable && err == nil {
+		found, err = s.lookupExecutable(hash)
 	}
 	if err != nil {
-		s.logger.Error("looking up binary", "err", err)
+		s.logger.Error("looking up executable", "err", err)
 	}
-	var sendBinary = s.sendBinary && !found
+	var sendExecutable = s.sendExecutable && !found
 
 	// We will use chunked transfer encoding to avoid keeping the whole
 	// dump in memory more than necessary. We will do this by giving the
@@ -153,11 +153,11 @@ func (s *service) run(ctx context.Context) {
 
 		s.logger.Debug("sending header")
 		err := json.NewEncoder(w).Encode(rcoredump.IndexRequest{
-			Date:           time.Unix(timestamp, 0),
-			Hostname:       hostname,
-			ExecutablePath: executable,
-			BinaryHash:     hash,
-			IncludeBinary:  sendBinary,
+			Date:              time.Unix(timestamp, 0),
+			Hostname:          hostname,
+			ExecutablePath:    executable,
+			ExecutableHash:    hash,
+			IncludeExecutable: sendExecutable,
 		})
 		if err != nil {
 			s.logger.Error("sending header", "err", err)
@@ -186,24 +186,24 @@ func (s *service) run(ctx context.Context) {
 			return
 		}
 
-		// Check if we want to send the binary.
-		if !sendBinary {
+		// Check if we want to send the executable.
+		if !sendExecutable {
 			return
 		}
 
-		// Send the binary.
+		// Send the executable.
 		w.Reset(pw)
 
 		s.logger.Debug("sending executable")
 		err = s.sendFile(w, executable)
 		if err != nil {
-			s.logger.Error("sending binary", "err", err)
+			s.logger.Error("sending executable", "err", err)
 			return
 		}
 
 		err = w.Close()
 		if err != nil {
-			s.logger.Error("closing binary stream", "err", err)
+			s.logger.Error("closing executable stream", "err", err)
 			return
 		}
 	}()
@@ -231,7 +231,7 @@ func (s *service) run(ctx context.Context) {
 	s.logger.Debug("done")
 }
 
-func (s *service) hashBinary(path string) (string, error) {
+func (s *service) hashExecutable(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", wrap(err, "opening executable")
@@ -248,8 +248,8 @@ func (s *service) hashBinary(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func (s *service) lookupBinary(hash string) (bool, error) {
-	res, err := http.Head(fmt.Sprintf("%s/binaries/%s", s.dest, hash))
+func (s *service) lookupExecutable(hash string) (bool, error) {
+	res, err := http.Head(fmt.Sprintf("%s/executables/%s", s.dest, hash))
 	if err != nil {
 		return false, wrap(err, "executing request")
 	}

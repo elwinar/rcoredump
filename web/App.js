@@ -164,7 +164,7 @@ function Core(props) {
 				<dt>date</dt><dd>{core.date}</dd>
 				<dt>hostname</dt><dd>{core.hostname}</dd>
 				<dt>executable</dt><dd>{core.executable_path}</dd>
-				<dt>lang</dt><dd>{core.lang}</dd>
+				{ core.lang !== "" ? <><dt>lang</dt><dd>{core.lang}</dd></> : null}
 			</dl>
 			{ core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p> }
 		</React.Fragment>

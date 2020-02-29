@@ -7,7 +7,6 @@ import (
 	"errors"
 	"html/template"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/blevesearch/bleve"
@@ -16,28 +15,27 @@ import (
 )
 
 type analyzeProcess struct {
-	log log15.Logger
-	uid string
+	log       log15.Logger
+	uid       string
+	index     bleve.Index
+	dir       string
+	analyzers map[string]*template.Template
 
 	core rcoredump.Coredump
-	elf  *elf.File
 	err  error
 }
 
-func newAnalyzeProcess(uid string, log log15.Logger) *analyzeProcess {
-	return &analyzeProcess{
-		uid: uid,
-		log: log.New("uid", uid),
-	}
+func (p *analyzeProcess) init() {
+	p.log = p.log.New("uid", p.uid)
 }
 
 // findCore do a search on the coredump index so we can get additionnal info on
-// the binary and have a document to complete afterwards. (Bleve doesn't do
+// the executable and have a document to complete afterwards. (Bleve doesn't do
 // partial updates.)
-func (p *analyzeProcess) findCore(i bleve.Index) {
+func (p *analyzeProcess) findCore() {
 	req := bleve.NewSearchRequest(bleve.NewDocIDQuery([]string{p.uid}))
 	req.Fields = []string{"*"}
-	res, err := i.Search(req)
+	res, err := p.index.Search(req)
 	if err != nil {
 		p.err = wrap(err, "finding indexed core")
 		return
@@ -61,28 +59,8 @@ func (p *analyzeProcess) findCore(i bleve.Index) {
 	}
 }
 
-func (p *analyzeProcess) clean() {
-	if p.elf != nil {
-		p.elf.Close()
-	}
-}
-
-func (p *analyzeProcess) loadELF(path string) {
-	if p.err != nil {
-		return
-	}
-
-	p.log.Debug("loading binary", "dir", path)
-	file, err := elf.Open(filepath.Join(path, p.core.BinaryHash))
-	if err != nil {
-		p.err = wrap(err, `opening core file: %w`)
-		return
-	}
-	p.elf = file
-}
-
-// detectLanguage looks at a binary file's sections to guess which language did
-// generate the binary.
+// detectLanguage looks at an executable file's sections to guess which
+// language did generate the executable.
 //
 // Note: the feature is rough, and probably simplist. I don't really care for
 // now, because we only want to distinguish C from Go, and this is enough for
@@ -93,9 +71,18 @@ func (p *analyzeProcess) detectLanguage() {
 		return
 	}
 
+	exefile := exepath(p.dir, p.core.ExecutableHash)
+	p.log.Debug("loading executable", "exefile", exefile)
+	file, err := elf.Open(exepath(p.dir, p.core.ExecutableHash))
+	if err != nil {
+		p.err = wrap(err, `opening executable file`)
+		return
+	}
+	defer file.Close()
+
 	p.log.Debug("detecting language")
 	p.core.Lang = rcoredump.LangC
-	for _, section := range p.elf.Sections {
+	for _, section := range file.Sections {
 		if section.Name == ".go.buildinfo" {
 			p.core.Lang = rcoredump.LangGo
 			break
@@ -104,16 +91,15 @@ func (p *analyzeProcess) detectLanguage() {
 	p.log.Debug("detected language", "lang", p.core.Lang)
 }
 
-func (p *analyzeProcess) extractStackTrace(dir string, analyzers map[string]*template.Template) {
+// extractStackTrace shell out to configuration-defined command to delegate the
+// task of extracting the stack trace itself and any information judged
+// interesting to index.
+func (p *analyzeProcess) extractStackTrace() {
 	if p.err != nil {
 		return
 	}
 
-	binfile := binpath(dir, p.core.BinaryHash)
-	corefile := corepath(dir, p.core.UID)
-	p.log.Debug("extracting stack trace")
-
-	tpl, ok := analyzers[p.core.Lang]
+	tpl, ok := p.analyzers[p.core.Lang]
 	if !ok {
 		p.log.Warn("no trace analyzer for language", "lang", p.core.Lang)
 		return
@@ -121,10 +107,11 @@ func (p *analyzeProcess) extractStackTrace(dir string, analyzers map[string]*tem
 
 	var buf bytes.Buffer
 	err := tpl.Execute(&buf, map[string]string{
-		"Binary": binfile,
-		"Core":   corefile,
-		"Dir":    dir,
+		"Executable": exepath(p.dir, p.core.ExecutableHash),
+		"Core":       corepath(p.dir, p.core.UID),
+		"Dir":        p.dir,
 	})
+	p.log.Debug("extracting stack trace", "cmd", buf.String())
 
 	cmd := strings.Split(buf.String(), " ")
 	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
@@ -137,14 +124,14 @@ func (p *analyzeProcess) extractStackTrace(dir string, analyzers map[string]*tem
 	p.log.Debug("extracted stack trace", "stack", p.core.Trace)
 }
 
-func (p *analyzeProcess) indexResults(i bleve.Index) {
+func (p *analyzeProcess) indexResults() {
 	if p.err != nil {
 		return
 	}
 
 	p.core.Analyzed = true
 	p.log.Debug("indexing analysis result", "result", p.core)
-	err := i.Index(p.uid, p.core)
+	err := p.index.Index(p.uid, p.core)
 	if err != nil {
 		p.err = wrap(err, "indexing results")
 		return

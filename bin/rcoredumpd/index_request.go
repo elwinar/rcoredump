@@ -16,24 +16,22 @@ import (
 )
 
 type indexRequest struct {
-	rcoredump.IndexRequest
-	r    *http.Request
-	log  log15.Logger
-	uid  string
-	body *bufio.Reader
+	log   log15.Logger
+	r     *http.Request
+	dir   string
+	index bleve.Index
 
-	err    error
+	err error
+	uid string
+	rcoredump.IndexRequest
+	body   *bufio.Reader
 	reader *gzip.Reader
 }
 
-func newIndexRequest(r *http.Request, log log15.Logger) *indexRequest {
-	uid := xid.New().String()
-	return &indexRequest{
-		r:    r,
-		log:  log.New("uid", uid),
-		uid:  uid,
-		body: bufio.NewReader(r.Body),
-	}
+func (r *indexRequest) init() {
+	r.uid = xid.New().String()
+	r.log = r.log.New("uid", r.uid)
+	r.body = bufio.NewReader(r.r.Body)
 }
 
 func (r *indexRequest) close() {
@@ -76,7 +74,7 @@ func (r *indexRequest) read() {
 	}
 }
 
-func (r *indexRequest) readCore(path string) {
+func (r *indexRequest) readCore() {
 	if r.err != nil {
 		return
 	}
@@ -87,7 +85,7 @@ func (r *indexRequest) readCore(path string) {
 		return
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(corepath(r.dir, r.uid))
 	if err != nil {
 		r.err = wrap(err, "creating core file")
 		return
@@ -101,7 +99,7 @@ func (r *indexRequest) readCore(path string) {
 	}
 }
 
-func (r *indexRequest) readBinary(path string) {
+func (r *indexRequest) readExecutable() {
 	if r.err != nil {
 		return
 	}
@@ -112,31 +110,31 @@ func (r *indexRequest) readBinary(path string) {
 		return
 	}
 
-	f, err := os.Create(path)
+	f, err := os.Create(exepath(r.dir, r.ExecutableHash))
 	if err != nil {
-		r.err = wrap(err, "creating binary file")
+		r.err = wrap(err, "creating executable file")
 		return
 	}
 	defer f.Close()
 
 	_, err = io.Copy(f, r.reader)
 	if err != nil {
-		r.err = wrap(err, "writing binary file")
+		r.err = wrap(err, "writing executable file")
 		return
 	}
 }
 
-func (r *indexRequest) indexCore(i bleve.Index) {
+func (r *indexRequest) indexCore() {
 	if r.err != nil {
 		return
 	}
 
-	err := i.Index(r.uid, rcoredump.Coredump{
+	err := r.index.Index(r.uid, rcoredump.Coredump{
 		UID:            r.uid,
 		Date:           r.Date,
 		Hostname:       r.Hostname,
 		ExecutablePath: r.ExecutablePath,
-		BinaryHash:     r.BinaryHash,
+		ExecutableHash: r.ExecutableHash,
 		Analyzed:       false,
 	})
 	if err != nil {
