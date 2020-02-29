@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -57,6 +58,27 @@ func (p *analyzeProcess) findCore() {
 		p.err = wrap(err, "parsing indexed core")
 		return
 	}
+}
+
+// computeSizes retrieve the size of both the executable and the core file.
+func (p *analyzeProcess) computeSizes() {
+	if p.err != nil {
+		return
+	}
+
+	corestat, err := os.Stat(corepath(p.dir, p.core.UID))
+	if err != nil {
+		p.err = wrap(err, `sizing core file`)
+		return
+	}
+	p.core.Size = corestat.Size()
+
+	exestat, err := os.Stat(exepath(p.dir, p.core.ExecutableHash))
+	if err != nil {
+		p.err = wrap(err, `sizing executable file`)
+		return
+	}
+	p.core.ExecutableSize = exestat.Size()
 }
 
 // detectLanguage looks at an executable file's sections to guess which

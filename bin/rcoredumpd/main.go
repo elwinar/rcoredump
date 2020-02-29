@@ -347,6 +347,7 @@ func (s *service) analyze(uid string) {
 
 	p.init()
 	p.findCore()
+	p.computeSizes()
 	p.detectLanguage()
 	p.extractStackTrace()
 	p.indexResults()

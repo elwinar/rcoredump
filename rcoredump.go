@@ -24,8 +24,10 @@ type Coredump struct {
 	Date           time.Time `json:"date"`
 	ExecutableHash string    `json:"executable_hash"`
 	ExecutablePath string    `json:"executable_path"`
+	ExecutableSize int64     `json:"executable_size"`
 	Hostname       string    `json:"hostname"`
 	Lang           string    `json:"lang"`
+	Size           int64     `json:"size"`
 	Trace          string    `json:"trace"`
 	UID            string    `json:"uid"`
 }
