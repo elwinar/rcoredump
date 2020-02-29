@@ -7,11 +7,13 @@ $background-light: #fcfcfa;
 $background-dark: #BDBCB4;
 
 body {
+	width: calc(100% - 5em);
 	max-width: 960px;
 	margin: 0 auto;
 	padding: 0 1em;
 	font-family: sans-serif;
 	background: $background;
+	overflow-y: scroll;
 }
 
 body * {

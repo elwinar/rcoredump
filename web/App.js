@@ -11,26 +11,21 @@ function decodeQuery(q) {
 
 const defaultQuery = {q: '*', sort: '-date', size: '20'};
 
-function formatSize(bytes, si) {
-    var threshold = si ? 1000 : 1024;
-    if(Math.abs(bytes) < threshold) {
-        return bytes + ' B';
-    }
-    var units = si
-        ? ['KB','MB','GB','TB','PB','EB','ZB','YB']
-        : ['KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB'];
-    var u = -1;
-    do {
-        bytes /= threshold;
-        ++u;
-    } while(Math.abs(bytes) >= threshold && u < units.length - 1);
-    return bytes.toFixed(1)+' '+units[u];
+function formatSize(bytes) {
+	const threshold = 1000;
+	const units = ['B', 'KB','MB','GB','TB','PB','EB','ZB','YB'];
+	let u = 0;
+	while (Math.abs(bytes) >= threshold && u < units.length - 1) {
+		bytes /= threshold;
+		u += 1;
+	}
+	return bytes.toFixed(1) + ' ' + units[u];
 }
 
 function App() {
 	let q = new URLSearchParams(document.location.search.substring(1)).get('q');
 	if (q === null) {
-	        q = defaultQuery;
+		q = defaultQuery;
 	} else {
 		q = decodeQuery(q);
 	}
@@ -154,13 +149,13 @@ function Table(props) {
 						return (
 							<React.Fragment key={x.uid}>
 								<tr>
-									<td className={styles.Toggle} onClick={() => toggle(x.uid)}>{ selected == x.uid ? '▼' : '▶' }</td>
+									<td className={styles.Toggle} onClick={() => toggle(x.uid)}>{selected == x.uid ? '▼' : '▶'}</td>
 									<td>{x.date}</td>
 									<td>{x.hostname}</td>
 									<td>{x.executable_path}</td>
 									<td>{x.lang}</td>
 								</tr>
-								{ selected == x.uid && <tr className={styles.Detail}><td colspan="6"><Core core={x} /></td></tr> }
+								{selected == x.uid && <tr className={styles.Detail}><td colSpan="5"><Core core={x} /></td></tr>}
 							</React.Fragment>
 						);
 					})}
@@ -184,10 +179,10 @@ function Core(props) {
 				<dt>date</dt><dd>{core.date}</dd>
 				<dt>hostname</dt><dd>{core.hostname}</dd>
 				<dt>executable</dt><dd><a href={`${document.config.baseURL}/binaries/${core.binary_hash}`}>{core.executable_path} ({formatSize(core.executable_size, true)})</a></dd>
-				{ core.lang !== "" ? <><dt>lang</dt><dd>{core.lang}</dd></> : null}
+				{core.lang !== "" ? <><dt>lang</dt><dd>{core.lang}</dd></> : null}
 			</dl>
 			<button onClick={() => analyze(core.uid)}>Analyze</button>
-			{ core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p> }
+			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
 		</React.Fragment>
 	);
 }
