@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"debug/elf"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"html/template"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/blevesearch/bleve"
 	"github.com/elwinar/rcoredump"
@@ -102,34 +104,32 @@ func (p *analyzeProcess) detectLanguage() {
 	p.log.Debug("detected language", "lang", p.core.Lang)
 }
 
-func (p *analyzeProcess) extractStackTrace(binpath, corepath string) {
+func (p *analyzeProcess) extractStackTrace(dir string, analyzers map[string]*template.Template) {
 	if p.err != nil {
 		return
 	}
 
-	binfile := filepath.Join(binpath, p.core.BinaryHash)
-	corefile := filepath.Join(corepath, p.core.UID)
+	binfile := binpath(dir, p.core.BinaryHash)
+	corefile := corepath(dir, p.core.UID)
 	p.log.Debug("extracting stack trace")
 
-	var out []byte
-	var err error
-	switch p.core.Lang {
-	case rcoredump.LangC:
-		out, err = exec.Command("gdb", "--nx", "--ex", "bt", "--batch", binfile, corefile).Output()
-	case rcoredump.LangGo:
-		cmd, err := ioutil.TempFile("", "")
-		if err != nil {
-			p.err = wrap(err, "writing delve command file")
-			return
-		}
-		cmd.WriteString("bt\nq\n")
-		cmd.Close()
-
-		out, err = exec.Command("dlv", "core", binfile, corefile, "--init", cmd.Name()).Output()
+	tpl, ok := analyzers[p.core.Lang]
+	if !ok {
+		p.log.Warn("no trace analyzer for language", "lang", p.core.Lang)
+		return
 	}
 
+	var buf bytes.Buffer
+	err := tpl.Execute(&buf, map[string]string{
+		"Binary": binfile,
+		"Core":   corefile,
+		"Dir":    dir,
+	})
+
+	cmd := strings.Split(buf.String(), " ")
+	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
 	if err != nil {
-		p.err = wrap(err, "extracting stack trace")
+		p.err = wrap(err, "extracting stack trace: %s", string(out))
 		return
 	}
 

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -57,13 +59,16 @@ type service struct {
 	dir          string
 	log          string
 	printVersion bool
+	goAnalyzer   string
+	cAnalyzer    string
 
-	logger   log15.Logger
-	received *prometheus.CounterVec
-	router   *httprouter.Router
-	stack    *negroni.Negroni
-	index    bleve.Index
-	queue    chan string
+	logger    log15.Logger
+	received  *prometheus.CounterVec
+	router    *httprouter.Router
+	stack     *negroni.Negroni
+	index     bleve.Index
+	queue     chan string
+	analyzers map[string]*template.Template
 }
 
 // configure read and validate the configuration of the service and populate
@@ -76,6 +81,8 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
 	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
+	fs.StringVar(&s.goAnalyzer, "go.analyzer", "dlv core {{ .Binary }} {{ .Core }} --init {{ .Dir }}/delve.cmd", "command to run to analyze Go core dumps")
+	fs.StringVar(&s.cAnalyzer, "c.analyzer", "gdb --nx --ex bt --batch {{ .Binary }} {{ .Core }}", "command to run to analyze C core dumps")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
@@ -98,13 +105,39 @@ func (s *service) init() (err error) {
 	s.logger.Debug("creating data directories")
 	for _, dir := range []string{
 		s.dir,
-		filepath.Join(s.dir, "binaries"),
-		filepath.Join(s.dir, "cores"),
+		binpath(s.dir, ""),
+		corepath(s.dir, ""),
 	} {
-		err = os.Mkdir(dir, os.ModeDir|0776)
+		err = os.Mkdir(dir, os.ModeDir|0774)
 		if err != nil && !errors.Is(err, os.ErrExist) {
-			return fmt.Errorf(`creating data directory: %w`, err)
+			return wrap(err, `creating data directory`)
 		}
+	}
+
+	// Ensure the default command file for Go is in the data directory.
+	if _, err := os.Stat(filepath.Join(s.dir, "delve.cmd")); os.IsNotExist(err) {
+		err := ioutil.WriteFile(filepath.Join(s.dir, "delve.cmd"), []byte("bt\nq\n"), 0774)
+		if err != nil {
+			return wrap(err, `writing default delve command file`)
+		}
+	}
+
+	// Parse the analyzer command templates.
+	s.analyzers = make(map[string]*template.Template)
+	for lang, src := range map[string]string{
+		rcoredump.LangGo: s.goAnalyzer,
+		rcoredump.LangC:  s.cAnalyzer,
+	} {
+		src = strings.TrimSpace(src)
+		if len(src) == 0 {
+			continue
+		}
+
+		tpl, err := template.New(lang).Parse(src)
+		if err != nil {
+			return wrap(err, "parsing analyze command for %s", lang)
+		}
+		s.analyzers[lang] = tpl
 	}
 
 	// Prometheus metrics
@@ -119,7 +152,7 @@ func (s *service) init() (err error) {
 	s.logger.Debug("fetching static files")
 	public, err := fs.New()
 	if err != nil {
-		return fmt.Errorf(`retrieving assets: %w`, err)
+		return wrap(err, `retrieving assets`)
 	}
 
 	// API Routes
@@ -148,7 +181,7 @@ func (s *service) init() (err error) {
 	indexPath := filepath.Join(s.dir, "index")
 	_, err = os.Stat(indexPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf(`checking for index: %w`, err)
+		return wrap(err, `checking for index`)
 	}
 
 	if errors.Is(err, os.ErrNotExist) {
@@ -159,7 +192,7 @@ func (s *service) init() (err error) {
 		s.index, err = bleve.Open(indexPath)
 	}
 	if err != nil {
-		return fmt.Errorf(`opening index: %w`, err)
+		return wrap(err, `opening index`)
 	}
 
 	// Analysis channel and routines.
@@ -171,19 +204,29 @@ func (s *service) init() (err error) {
 		}
 	}()
 
-	query := bleve.NewBoolFieldQuery(false)
-	query.SetField("analyzed")
+	return nil
+}
 
-	req := bleve.NewSearchRequest(query)
-	req.Fields = []string{"uid"}
+// run does the actual running of the service until the context is closed.
+func (s *service) run(ctx context.Context) {
+	// Look for cores not yet analyzed and add them to the queue.
+	go func() {
+		query := bleve.NewBoolFieldQuery(false)
+		query.SetField("analyzed")
 
-	res, err := s.index.Search(req)
-	if err != nil {
-		s.logger.Error("initializing analysis", "err", err)
-		return nil
-	}
+		req := bleve.NewSearchRequest(query)
+		req.Fields = []string{"uid"}
 
-	if len(res.Hits) != 0 {
+		res, err := s.index.Search(req)
+		if err != nil {
+			s.logger.Error("initializing analysis", "err", err)
+			return
+		}
+
+		if len(res.Hits) == 0 {
+			return
+		}
+
 		s.logger.Debug("found leftover dumps to analyze", "count", len(res.Hits))
 		for _, d := range res.Hits {
 			uid, ok := d.Fields["uid"].(string)
@@ -194,13 +237,8 @@ func (s *service) init() (err error) {
 
 			s.queue <- uid
 		}
-	}
+	}()
 
-	return nil
-}
-
-// run does the actual running of the service until the context is closed.
-func (s *service) run(ctx context.Context) {
 	server := &http.Server{
 		Addr:    s.bind,
 		Handler: s.stack,
@@ -301,7 +339,7 @@ func (s *service) analyze(uid string) {
 	p.findCore(s.index)
 	p.loadELF(filepath.Join(s.dir, "binaries"))
 	p.detectLanguage()
-	p.extractStackTrace(filepath.Join(s.dir, "binaries"), filepath.Join(s.dir, "cores"))
+	p.extractStackTrace(s.dir, s.analyzers)
 	p.indexResults(s.index)
 
 	if p.err != nil {
@@ -412,4 +450,12 @@ func writeError(w http.ResponseWriter, status int, err error) {
 // wrap an error using the provided message and arguments.
 func wrap(err error, msg string, args ...interface{}) error {
 	return fmt.Errorf("%s: %w", fmt.Sprintf(msg, args...), err)
+}
+
+func binpath(base, bin string) string {
+	return filepath.Join(base, "binaries", bin)
+}
+
+func corepath(base, core string) string {
+	return filepath.Join(base, "cores", core)
 }

@@ -120,11 +120,11 @@ func (s *service) run(ctx context.Context) {
 		return
 	}
 	hostname, _ := os.Hostname()
-	s.logger.Debug("parsed arguments")
 
 	// Look up the binary in the server by using its sha1 hash. The
 	// operation can fail in which case we will continue and consider that
 	// the binary wasn't found so we don't lose the dump.
+	s.logger.Debug("hashing executable")
 	var found bool
 	hash, err := s.hashBinary(executable)
 	if s.sendBinary && err == nil {
@@ -134,7 +134,6 @@ func (s *service) run(ctx context.Context) {
 		s.logger.Error("looking up binary", "err", err)
 	}
 	var sendBinary = s.sendBinary && !found
-	s.logger.Debug("hashed binary")
 
 	// We will use chunked transfer encoding to avoid keeping the whole
 	// dump in memory more than necessary. We will do this by giving the
@@ -195,7 +194,7 @@ func (s *service) run(ctx context.Context) {
 		// Send the binary.
 		w.Reset(pw)
 
-		s.logger.Debug("sending binary")
+		s.logger.Debug("sending executable")
 		err = s.sendFile(w, executable)
 		if err != nil {
 			s.logger.Error("sending binary", "err", err)
