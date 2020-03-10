@@ -13,13 +13,21 @@ incoming files and process them.
 ```
 Usage of rcoredumpd: rcoredumpd [options]
   -bind string
-    	address to listen to (default "localhost:1105")
+        address to listen to (default "localhost:1105")
+  -bleve.path string
+        path of the directory to store the coredumps into (default "/var/lib/rcoredumpd/index")
+  -c.analyzer string
+        command to run to analyze C core dumps (default "gdb --nx --ex bt --batch {{ .Executable }} {{ .Core }}")
   -conf string
-    	configuration file to load (default "/etc/rcoredump/rcoredumpd.conf")
+        configuration file to load (default "/etc/rcoredump/rcoredumpd.conf")
   -dir string
-    	path of the directory to store the coredumps into (default "/var/lib/rcoredumpd/")
+        path of the directory to store data into (default "/var/lib/rcoredumpd")
+  -go.analyzer string
+        command to run to analyze Go core dumps (default "dlv core {{ .Executable }} {{ .Core }} --init {{ .Dir }}/delve.cmd")
+  -index-type string
+        type of index to use (values: bleve) (default "bleve")
   -version
-    	print the version of rcoredumpd
+        print the version of rcoredumpd
 ```
 
 ### `rcoredump`
@@ -42,7 +50,7 @@ Usage of rcoredump: rcoredump [options] <executable path> <timestamp of dump>
   -syslog
     	output logs to syslog
   -version
-    	print the version of rcoredum
+    	print the version of rcoredump
 ```
 
 On linux, you can use sysctl's `kernel.core_pattern` tunable to have the kernel

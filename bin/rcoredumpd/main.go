@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blevesearch/bleve"
 	"github.com/elwinar/rcoredump"
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
 	"github.com/elwinar/rcoredump/conf"
@@ -55,18 +54,21 @@ func main() {
 }
 
 type service struct {
+	// Configuration.
 	bind         string
-	dir          string
-	log          string
 	printVersion bool
+	indexType    string
+	blevePath    string
+	dir          string
 	goAnalyzer   string
 	cAnalyzer    string
 
+	// State.
 	logger    log15.Logger
 	received  *prometheus.CounterVec
 	router    *httprouter.Router
 	stack     *negroni.Negroni
-	index     bleve.Index
+	index     Index
 	queue     chan string
 	analyzers map[string]*template.Template
 }
@@ -79,11 +81,22 @@ func (s *service) configure() {
 		fmt.Fprintln(fs.Output(), "Usage of rcoredumpd: rcoredumpd [options]")
 		fs.PrintDefaults()
 	}
+
+	// General options.
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
-	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd/", "path of the directory to store the coredumps into")
+	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
+
+	// Index options.
+	fs.StringVar(&s.indexType, "index-type", "bleve", "type of index to use (values: bleve)")
+	fs.StringVar(&s.blevePath, "bleve.path", "/var/lib/rcoredumpd/index", "path of the directory to store the coredumps into")
+
+	// Store options.
+	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd", "path of the directory to store data into")
+
+	// Analyze options.
 	fs.StringVar(&s.goAnalyzer, "go.analyzer", "dlv core {{ .Executable }} {{ .Core }} --init {{ .Dir }}/delve.cmd", "command to run to analyze Go core dumps")
 	fs.StringVar(&s.cAnalyzer, "c.analyzer", "gdb --nx --ex bt --batch {{ .Executable }} {{ .Core }}", "command to run to analyze C core dumps")
-	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
+
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 }
@@ -178,21 +191,12 @@ func (s *service) init() (err error) {
 	s.stack.UseHandler(s.router)
 
 	// Fulltext Index
-	indexPath := filepath.Join(s.dir, "index")
-	_, err = os.Stat(indexPath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return wrap(err, `checking for index`)
-	}
-
-	if errors.Is(err, os.ErrNotExist) {
-		s.logger.Debug("creating index", "path", indexPath)
-		s.index, err = bleve.New(indexPath, bleve.NewIndexMapping())
-	} else {
-		s.logger.Debug("opening index", "path", indexPath)
-		s.index, err = bleve.Open(indexPath)
-	}
-	if err != nil {
-		return wrap(err, `opening index`)
+	switch s.indexType {
+	case "bleve":
+		s.index, err = NewBleveIndex(s.blevePath)
+		if err != nil {
+			return wrap(err, `opening index`)
+		}
 	}
 
 	// Analysis channel and routines.
@@ -211,30 +215,18 @@ func (s *service) init() (err error) {
 func (s *service) run(ctx context.Context) {
 	// Look for cores not yet analyzed and add them to the queue.
 	go func() {
-		query := bleve.NewBoolFieldQuery(false)
-		query.SetField("analyzed")
-
-		req := bleve.NewSearchRequest(query)
-		req.Fields = []string{"uid"}
-
-		res, err := s.index.Search(req)
+		uids, err := s.index.FindUnanalyzed()
 		if err != nil {
 			s.logger.Error("initializing analysis", "err", err)
 			return
 		}
 
-		if len(res.Hits) == 0 {
+		if len(uids) == 0 {
 			return
 		}
 
-		s.logger.Debug("found leftover dumps to analyze", "count", len(res.Hits))
-		for _, d := range res.Hits {
-			uid, ok := d.Fields["uid"].(string)
-			if !ok {
-				s.logger.Error("initializing analysis", "err", fmt.Errorf("uid field for document %s isn't a string", d.ID))
-				continue
-			}
-
+		s.logger.Debug("found leftover dumps to analyze", "count", len(uids))
+		for _, uid := range uids {
 			s.queue <- uid
 		}
 	}()
@@ -317,14 +309,14 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	uid := p.ByName("uid")
 
-	d, err := s.index.Document(uid)
+	found, err := s.index.Lookup(uid)
 	if err != nil {
 		s.logger.Error("analyzing", "uid", uid, "err", err)
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	if d == nil {
+	if !found {
 		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
 		return
 	}
@@ -362,34 +354,28 @@ func (s *service) analyze(uid string) {
 func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var err error
 
-	// Create the search request first.
-	req := bleve.NewSearchRequest(
-		bleve.NewQueryStringQuery(r.FormValue("q")),
-	)
-	// Add the fields to look for.
-	req.Fields = []string{"*"}
-	// If there is a sort parameter in the form, add it to the search
-	// string.
-	sort := r.FormValue("sort")
-	if len(sort) != 0 {
-		req.SortBy(strings.Split(sort, ","))
-	} else {
-		req.SortBy([]string{"-date"})
-	}
-	// If there is a size parameter in the form, add it to the search
-	// string.
-	size := r.FormValue("size")
-	if len(size) != 0 {
-		req.Size, err = strconv.Atoi(size)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, wrap(err, "invalid size parameter"))
-			return
-		}
-	} else {
-		req.Size = 20
+	q := r.FormValue("q")
+	if len(q) == 0 {
+		q = "*"
 	}
 
-	res, err := s.index.Search(req)
+	sort := r.FormValue("sort")
+	if len(sort) == 0 {
+		sort = "-date"
+	}
+
+	rawSize := r.FormValue("size")
+	if len(rawSize) == 0 {
+		rawSize = "20"
+	}
+
+	size, err := strconv.Atoi(rawSize)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, wrap(err, "invalid size parameter"))
+		return
+	}
+
+	res, err := s.index.Search(q, sort, size)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -441,6 +427,9 @@ func (s *service) getExecutable(w http.ResponseWriter, r *http.Request, p httpro
 	w.WriteHeader(http.StatusOK)
 	io.Copy(w, f)
 }
+
+// Coredump is simply an alias of the lib type, for convenience.
+type Coredump = rcoredump.Coredump
 
 // write a payload and a status to the ResponseWriter.
 func write(w http.ResponseWriter, status int, payload interface{}) {

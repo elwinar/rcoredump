@@ -3,14 +3,11 @@ package main
 import (
 	"bytes"
 	"debug/elf"
-	"encoding/json"
-	"errors"
 	"html/template"
 	"os"
 	"os/exec"
 	"strings"
 
-	"github.com/blevesearch/bleve"
 	"github.com/elwinar/rcoredump"
 	"github.com/inconshreveable/log15"
 )
@@ -18,7 +15,7 @@ import (
 type analyzeProcess struct {
 	log       log15.Logger
 	uid       string
-	index     bleve.Index
+	index     Index
 	dir       string
 	analyzers map[string]*template.Template
 
@@ -31,31 +28,12 @@ func (p *analyzeProcess) init() {
 }
 
 // findCore do a search on the coredump index so we can get additionnal info on
-// the executable and have a document to complete afterwards. (Bleve doesn't do
-// partial updates.)
+// the executable and have a document to update.
 func (p *analyzeProcess) findCore() {
-	req := bleve.NewSearchRequest(bleve.NewDocIDQuery([]string{p.uid}))
-	req.Fields = []string{"*"}
-	res, err := p.index.Search(req)
+	var err error
+	p.core, err = p.index.Find(p.uid)
 	if err != nil {
 		p.err = wrap(err, "finding indexed core")
-		return
-	}
-
-	if len(res.Hits) == 0 {
-		p.err = wrap(errors.New(`not found`), "finding indexed core")
-		return
-	}
-
-	raw, err := json.Marshal(res.Hits[0].Fields)
-	if err != nil {
-		p.err = wrap(err, "parsing indexed core")
-		return
-	}
-
-	err = json.Unmarshal(raw, &p.core)
-	if err != nil {
-		p.err = wrap(err, "parsing indexed core")
 		return
 	}
 }
@@ -153,7 +131,7 @@ func (p *analyzeProcess) indexResults() {
 
 	p.core.Analyzed = true
 	p.log.Debug("indexing analysis result", "result", p.core)
-	err := p.index.Index(p.uid, p.core)
+	err := p.index.Index(p.core)
 	if err != nil {
 		p.err = wrap(err, "indexing results")
 		return

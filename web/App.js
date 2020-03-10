@@ -41,10 +41,7 @@ function App() {
 		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
 			.then(res => res.json())
 			.then(function(res){
-				setEntries(res.hits.map(x => {
-					sessionStorage.setItem(x.fields.uid, JSON.stringify(x.fields));
-					return x.fields;
-				}));
+				setEntries(res || []);
 			});
 	}, [query]);
 
@@ -145,7 +142,7 @@ function Table(props) {
 					</tr>
 				</thead>
 				<tbody>
-					{props.entries.map(x => {
+					{entries.map(x => {
 						return (
 							<React.Fragment key={x.uid}>
 								<tr>

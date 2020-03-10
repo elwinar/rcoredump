@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/blevesearch/bleve"
 	"github.com/elwinar/rcoredump"
 	"github.com/inconshreveable/log15"
 	"github.com/rs/xid"
@@ -19,7 +18,7 @@ type indexRequest struct {
 	log   log15.Logger
 	r     *http.Request
 	dir   string
-	index bleve.Index
+	index Index
 
 	err error
 	uid string
@@ -129,7 +128,7 @@ func (r *indexRequest) indexCore() {
 		return
 	}
 
-	err := r.index.Index(r.uid, rcoredump.Coredump{
+	err := r.index.Index(Coredump{
 		UID:            r.uid,
 		Date:           r.Date,
 		Hostname:       r.Hostname,
