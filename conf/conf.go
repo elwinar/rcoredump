@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -86,7 +87,13 @@ func parse(fs *flag.FlagSet, conf string) error {
 		if len(chunks) == 1 {
 			chunks = append(chunks, "true")
 		}
-		key, val := strings.TrimSpace(chunks[0]), strings.TrimSpace(chunks[1])
+		key, val := chunks[0], chunks[1]
+
+		key = strings.TrimSpace(key)
+		val, err = strconv.Unquote(strings.TrimSpace(val))
+		if err != nil {
+			return fmt.Errorf("unquoting value %q for key %q: %w", val, key, err)
+		}
 
 		if set[key] {
 			continue
