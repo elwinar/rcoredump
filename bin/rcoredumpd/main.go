@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
+	"log/syslog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -56,6 +57,8 @@ func main() {
 type service struct {
 	// Configuration.
 	bind         string
+	syslog       bool
+	filelog      string
 	printVersion bool
 	indexType    string
 	blevePath    string
@@ -84,6 +87,8 @@ func (s *service) configure() {
 
 	// General options.
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
+	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
+	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into (\"-\" for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
 
 	// Index options.
@@ -112,7 +117,20 @@ func (s *service) init() (err error) {
 
 	// Logger
 	s.logger = log15.New()
-	s.logger.SetHandler(log15.StreamHandler(os.Stdout, log15.LogfmtFormat()))
+
+	format := log15.LogfmtFormat()
+	var handler log15.Handler
+	if s.syslog {
+		handler, err = log15.SyslogHandler(syslog.LOG_KERN, "rcoredumpd", format)
+	} else if s.filelog == "-" {
+		handler, err = log15.StreamHandler(os.Stdout, format), nil
+	} else {
+		handler, err = log15.FileHandler(s.filelog, format)
+	}
+	if err != nil {
+		return err
+	}
+	s.logger.SetHandler(handler)
 
 	// Data dir
 	s.logger.Debug("creating data directories")

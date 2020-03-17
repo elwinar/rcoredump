@@ -67,9 +67,9 @@ func (s *service) configure() {
 		fs.PrintDefaults()
 	}
 	fs.StringVar(&s.dest, "dest", "http://localhost:1105", "address of the destination host")
-	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
+	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host (\"-\" for stdin)")
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
-	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into ('-' for stdout)")
+	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into (\"-\" for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredump")
 	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
 	conf.Parse(fs, "conf")

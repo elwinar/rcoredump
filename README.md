@@ -79,10 +79,14 @@ Usage of rcoredumpd: rcoredumpd [options]
         configuration file to load (default "/etc/rcoredump/rcoredumpd.conf")
   -dir string
         path of the directory to store data into (default "/var/lib/rcoredumpd")
+  -filelog string
+        path of the file to log into ("-" for stdout) (default "-")
   -go.analyzer string
         command to run to analyze Go core dumps (default "dlv core {{ .Executable }} {{ .Core }} --init {{ .Dir }}/delve.cmd")
   -index-type string
         type of index to use (values: bleve) (default "bleve")
+  -syslog
+        output logs to syslog
   -version
         print the version of rcoredumpd
 ```
@@ -96,9 +100,9 @@ Usage of rcoredump: rcoredump [options] <executable path> <timestamp of dump>
   -dest string
         address of the destination host (default "http://localhost:1105")
   -filelog string
-        path of the file to log into ('-' for stdout) (default "-")
+        path of the file to log into ("-" for stdout) (default "-")
   -src string
-        path of the coredump to send to the host ('-' for stdin) (default "-")
+        path of the coredump to send to the host ("-" for stdin) (default "-")
   -syslog
         output logs to syslog
   -version
