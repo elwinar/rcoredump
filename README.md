@@ -1,4 +1,4 @@
-# rcoredump
+# rcoredump [![Build Status](https://travis-ci.org/elwinar/rcoredump.svg?branch=master)](https://travis-ci.org/elwinar/rcoredump)
 
 _rcoredump_ is meant to be a toolbox for aggregating, indexing, and searching
 core dumps. Think ELK for core dumps.
