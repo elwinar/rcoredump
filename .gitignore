@@ -4,4 +4,4 @@
 /run
 /.cache
 /config.js
-/rcoredumpd.conf
+/*.conf
