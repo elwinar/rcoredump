@@ -90,13 +90,16 @@ func parse(fs *flag.FlagSet, conf string) error {
 		key, val := chunks[0], chunks[1]
 
 		key = strings.TrimSpace(key)
-		val, err = strconv.Unquote(strings.TrimSpace(val))
-		if err != nil {
-			return fmt.Errorf("unquoting value %q for key %q: %w", val, key, err)
-		}
-
 		if set[key] {
 			continue
+		}
+
+		val = strings.TrimSpace(val)
+		if len(val) != 0 && val[0] == '"' {
+			val, err = strconv.Unquote(val)
+			if err != nil {
+				return fmt.Errorf("unquoting value %q for key %q: %w", val, key, err)
+			}
 		}
 
 		err := fs.Set(key, val)
