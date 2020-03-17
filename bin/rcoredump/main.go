@@ -68,7 +68,6 @@ func (s *service) configure() {
 	}
 	fs.StringVar(&s.dest, "dest", "http://localhost:1105", "address of the destination host")
 	fs.StringVar(&s.src, "src", "-", "path of the coredump to send to the host ('-' for stdin)")
-	fs.BoolVar(&s.sendExecutable, "send-executable", true, "send the executable along with the dump")
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
 	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into ('-' for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredump")
@@ -125,15 +124,17 @@ func (s *service) run(ctx context.Context) {
 	// operation can fail in which case we will continue and consider that
 	// the executable wasn't found so we don't lose the dump.
 	s.logger.Debug("hashing executable")
-	var found bool
+	sendExecutable := true
 	hash, err := s.hashExecutable(executable)
-	if s.sendExecutable && err == nil {
-		found, err = s.lookupExecutable(hash)
-	}
 	if err != nil {
-		s.logger.Error("looking up executable", "err", err)
+		s.logger.Error("hashing executable", "err", err)
+	} else {
+		found, err := s.lookupExecutable(hash)
+		if err != nil {
+			s.logger.Error("looking up executable", "err", err)
+		}
+		sendExecutable = !found
 	}
-	var sendExecutable = s.sendExecutable && !found
 
 	// We will use chunked transfer encoding to avoid keeping the whole
 	// dump in memory more than necessary. We will do this by giving the

@@ -97,8 +97,6 @@ Usage of rcoredump: rcoredump [options] <executable path> <timestamp of dump>
         address of the destination host (default "http://localhost:1105")
   -filelog string
         path of the file to log into ('-' for stdout) (default "-")
-  -send-executable
-        send the executable along with the dump (default true)
   -src string
         path of the coredump to send to the host ('-' for stdin) (default "-")
   -syslog
