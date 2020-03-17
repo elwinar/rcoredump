@@ -1,0 +1,71 @@
+#!/bin/sh
+
+# PROVIDE: rcoredumpd
+# REQUIRE: LOGIN
+# KEYWORD: shutdown
+#
+# Add the following lines to /etc/rc.conf.local or /etc/rc.conf
+# to enable this service:
+#
+# rcoredumpd_enable (bool):          Set to NO by default.
+#               Set it to YES to enable rcoredumpd.
+# rcoredumpd_user (string):          Set user that rcoredumpd will run under
+#               Default is "nobody".
+# rcoredumpd_group (string):         Set group that rcoredumpd will run under
+#               Default is "nobody".
+# rcoredumpd_args (string):          Set extra arguments to pass to rcoredumpd
+#               Default is "".
+# rcoredumpd_listen_address (string):Set ip:port that rcoredumpd will listen on
+#               Default is ":1105".
+# rcoredumpd_data_dir (string):Set data directory:directory that rcoredumpd will use to store data
+#               Default is ":/usr/local/rcoredump".
+
+
+
+. /etc/rc.subr
+
+name=rcoredumpd
+rcvar=rcoredumpd_enable
+
+load_rc_config $name
+
+: ${rcoredumpd_enable:="NO"}
+: ${rcoredumpd_user:="nobody"}
+: ${rcoredumpd_group:="nobody"}
+: ${rcoredumpd_args:=""}
+: ${rcoredumpd_listen_address:="localhost:1105"}
+: ${rcoredumpd_data_dir:="/usr/local/rcoredump"}
+: ${rcoredumpd_index_path:="/usr/local/rcoredump/index"}
+
+pidfile=/var/run/rcoredumpd.pid
+command="/usr/sbin/daemon"
+procname="/usr/local/bin/rcoredumpd"
+command_args="-p ${pidfile} -T ${name} \
+    /usr/bin/env PATH=/usr/local/bin:/usr/bin:${PATH} ${procname} \
+    -bind ${rcoredumpd_listen_address} \
+    -dir ${rcoredumpd_data_dir} \
+    -bleve.path ${rcoredumpd_index_path} \
+    ${rcoredumpd_args}"
+
+start_precmd=rcoredumpd_startprecmd
+
+rcoredumpd_startprecmd()
+{
+    if [ ! -e ${pidfile} ]; then
+        install \
+            -o ${rcoredumpd_user} \
+            -g ${rcoredumpd_group} \
+            /dev/null ${pidfile};
+    fi
+    if [ ! -d ${rcoredumpd_data_dir} ]; then
+        install \
+            -d \
+            -o ${rcoredumpd_user} \
+            -g ${rcoredumpd_group} \
+            -m 1755 \
+            ${rcoredumpd_data_dir}
+    fi
+}
+
+load_rc_config $name
+run_rc_command "$1"
