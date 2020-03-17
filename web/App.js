@@ -175,7 +175,7 @@ function Core(props) {
 				<dt>uid</dt><dd><a href={`${document.config.baseURL}/cores/${core.uid}`}>{core.uid} ({formatSize(core.size, true)})</a></dd>
 				<dt>date</dt><dd>{core.date}</dd>
 				<dt>hostname</dt><dd>{core.hostname}</dd>
-				<dt>executable</dt><dd><a href={`${document.config.baseURL}/binaries/${core.binary_hash}`}>{core.executable_path} ({formatSize(core.executable_size, true)})</a></dd>
+				<dt>executable</dt><dd><a href={`${document.config.baseURL}/executables/${core.executable_hash}`}>{core.executable_path} ({formatSize(core.executable_size, true)})</a></dd>
 				{core.lang !== "" ? <><dt>lang</dt><dd>{core.lang}</dd></> : null}
 			</dl>
 			<button onClick={() => analyze(core.uid)}>Analyze</button>
