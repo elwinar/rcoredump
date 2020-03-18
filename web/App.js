@@ -149,7 +149,7 @@ function Table(props) {
 									<td className={styles.Toggle} onClick={() => toggle(x.uid)}>{selected == x.uid ? '▼' : '▶'}</td>
 									<td>{x.date}</td>
 									<td>{x.hostname}</td>
-									<td>{x.executable_path}</td>
+									<td>{x.executable_path.split('/').pop()}</td>
 									<td>{x.lang}</td>
 								</tr>
 								{selected == x.uid && <tr className={styles.Detail}><td colSpan="5"><Core core={x} /></td></tr>}
