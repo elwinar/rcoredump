@@ -27,19 +27,33 @@
 
 .Table {
 	width: 100%;
+	table-layout:fixed;
+
+	th {
+		&:nth-child(1) {
+			width: 2em;
+		}
+
+		&:nth-child(2) {
+			width: 22ch;
+		}
+
+		&:nth-child(5) {
+			width: 7ch;
+		}
+	}
 
 	.Toggle {
 		cursor: pointer;
-		width: 1em;
-	}
-
-	.Short {
-		width: 5em;
 	}
 
 	.Detail {
 		& > td {
 			padding: 0 1em;
+		}
+
+		pre {
+			white-space: pre-wrap;
 		}
 	}
 }
