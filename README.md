@@ -101,6 +101,8 @@ Usage of rcoredump: rcoredump [options] <executable path> <timestamp of dump>
         address of the destination host (default "http://localhost:1105")
   -filelog string
         path of the file to log into ("-" for stdout) (default "-")
+  -metadata value
+        list of metadata to send alongside the coredump (key=value, can be specified multiple times or separated by ';')
   -src string
         path of the coredump to send to the host ("-" for stdin) (default "-")
   -syslog

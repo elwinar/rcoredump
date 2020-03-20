@@ -178,6 +178,16 @@ function Core(props) {
 				<dt>executable</dt><dd><a href={`${document.config.baseURL}/executables/${core.executable_hash}`}>{core.executable_path} ({formatSize(core.executable_size, true)})</a></dd>
 				{core.lang !== "" ? <><dt>lang</dt><dd>{core.lang}</dd></> : null}
 			</dl>
+			<dl className={styles.Metadata}>
+				{Object.keys(core.metadata).map(x => {
+					return (
+						<React.Fragment key={x}>
+							<dt>{x}</dt>
+							<dd>{core.metadata[x]}</dd>
+						</React.Fragment>
+					);
+				})}
+			</dl>
 			<button onClick={() => analyze(core.uid)}>Analyze</button>
 			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
 		</React.Fragment>

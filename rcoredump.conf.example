@@ -1,0 +1,8 @@
+# dest is the URL of the server, complete with scheme and port.
+dest="http://localhost:1105"
+
+# the metadata flag can be written multiple time to specify multiple metadata
+# to qualify the coredumps sent by this forwarder.
+metadata=environment=production
+metadata=chain=process
+

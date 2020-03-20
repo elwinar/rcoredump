@@ -110,3 +110,32 @@ func parse(fs *flag.FlagSet, conf string) error {
 
 	return nil
 }
+
+func MapFlag(m *map[string]string) *mapFlag {
+	if *m == nil {
+		*m = make(map[string]string)
+	}
+	return &mapFlag{
+		m: *m,
+	}
+}
+
+type mapFlag struct {
+	m map[string]string
+}
+
+func (f *mapFlag) String() string {
+	return fmt.Sprintf(`%q`, f.m)
+}
+
+func (f *mapFlag) Set(raw string) error {
+	for _, value := range strings.Split(raw, ";") {
+		parts := strings.SplitN(value, "=", 2)
+		if len(parts) == 1 {
+			f.m[parts[0]] = ""
+		} else {
+			f.m[parts[0]] = parts[1]
+		}
+	}
+	return nil
+}

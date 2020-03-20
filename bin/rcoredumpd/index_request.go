@@ -134,6 +134,7 @@ func (r *indexRequest) indexCore() {
 		Hostname:       r.Hostname,
 		ExecutablePath: r.ExecutablePath,
 		ExecutableHash: r.ExecutableHash,
+		Metadata:       r.Metadata,
 		Analyzed:       false,
 	})
 	if err != nil {

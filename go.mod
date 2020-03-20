@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/RoaringBitmap/roaring v0.4.21 // indirect
+	github.com/anexia-it/go-structmapper v1.0.6 // indirect
 	github.com/blevesearch/bleve v0.8.1
 	github.com/blevesearch/blevex v0.0.0-20190916190636-152f0fe5c040 // indirect
 	github.com/blevesearch/go-porterstemmer v1.0.2 // indirect
@@ -16,6 +17,8 @@ require (
 	github.com/facebookgo/ensure v0.0.0-20160127193407-b4ab57deab51 // indirect
 	github.com/facebookgo/stack v0.0.0-20160209184415-751773369052 // indirect
 	github.com/facebookgo/subset v0.0.0-20150612182917-8dac2c3c4870 // indirect
+	github.com/fatih/structs v1.1.0
+	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
 	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0
@@ -37,5 +40,6 @@ require (
 	go.etcd.io/bbolt v1.3.3 // indirect
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect
 	golang.org/x/sys v0.0.0-20191113165036-4c7a9d0fe056 // indirect
+	gopkg.in/anexia-it/go-structmapper.v1 v1.0.6
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )

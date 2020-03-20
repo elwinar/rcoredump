@@ -1,13 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/blevesearch/bleve"
+	structmapper "gopkg.in/anexia-it/go-structmapper.v1"
 )
 
 type Index interface {
@@ -38,18 +38,35 @@ func NewBleveIndex(path string) (Index, error) {
 		return nil, wrap(err, `opening index`)
 	}
 
-	return BleveIndex{i: index}, nil
+	mapper, err := structmapper.NewMapper()
+	if err != nil {
+		return nil, wrap(err, `initializing mapper`)
+	}
+
+	return BleveIndex{
+		index:  index,
+		mapper: mapper,
+	}, nil
 }
 
 type BleveIndex struct {
-	i bleve.Index
+	// the index is the actual struct we are interfacing with.
+	index bleve.Index
+
+	// the mapper is used to convert between the Coredump struct itself and
+	// the map[string]interface{} used internally by the bleve index. The
+	// issue is that the types of fields allowed by bleve are quite
+	// limited, for example Metadata, so we need to fake it using meta.x
+	// fields. In addition, this allows searching on those fields, which
+	// isn't possible by default.
+	mapper *structmapper.Mapper
 }
 
 func (i BleveIndex) Find(uid string) (c Coredump, err error) {
 	req := bleve.NewSearchRequest(bleve.NewDocIDQuery([]string{uid}))
 	req.Fields = []string{"*"}
 
-	res, err := i.i.Search(req)
+	res, err := i.index.Search(req)
 	if err != nil {
 		return c, wrap(err, `looking for coredump`)
 	}
@@ -58,15 +75,23 @@ func (i BleveIndex) Find(uid string) (c Coredump, err error) {
 		return c, ErrNotFound
 	}
 
-	raw, err := json.Marshal(res.Hits[0].Fields)
+	err = i.mapper.ToStruct(res.Hits[0].Fields, &c)
 	if err != nil {
-		return c, wrap(err, `marshaling result`)
+		return c, wrap(err, `mapping result to coredump`)
 	}
 
-	err = json.Unmarshal(raw, &c)
-	if err != nil {
-		return c, wrap(err, `parsing result`)
+	c.Metadata = make(map[string]string)
+	for k, v := range res.Hits[0].Fields {
+		if !strings.HasPrefix(k, "meta.") {
+			continue
+		}
+		if _, ok := v.(string); !ok {
+			return c, fmt.Errorf(`unexpected type for metadata value %s in core %s: %T`, k, c.UID, v)
+		}
+		c.Metadata[strings.TrimPrefix(k, "meta.")] = v.(string)
 	}
+
+	fmt.Println("find", c)
 
 	return c, nil
 }
@@ -78,7 +103,7 @@ func (i BleveIndex) FindUnanalyzed() ([]string, error) {
 	req := bleve.NewSearchRequest(query)
 	req.Fields = []string{"uid"}
 
-	res, err := i.i.Search(req)
+	res, err := i.index.Search(req)
 	if err != nil {
 		return nil, wrap(err, `searching for unanalyzed coredumps`)
 	}
@@ -99,11 +124,20 @@ func (i BleveIndex) FindUnanalyzed() ([]string, error) {
 }
 
 func (i BleveIndex) Index(c Coredump) error {
-	return i.i.Index(c.UID, c)
+	m, err := i.mapper.ToMap(c)
+	if err != nil {
+		return wrap(err, `mapping Coredump`)
+	}
+
+	for k, v := range c.Metadata {
+		m[fmt.Sprintf("meta.%s", k)] = v
+	}
+
+	return i.index.Index(c.UID, m)
 }
 
 func (i BleveIndex) Lookup(uid string) (exists bool, err error) {
-	d, err := i.i.Document(uid)
+	d, err := i.index.Document(uid)
 	if err != nil {
 		return false, wrap(err, `looking for coredump`)
 	}
@@ -116,21 +150,28 @@ func (i BleveIndex) Search(q, sort string, size int) (cores []Coredump, err erro
 	req.Fields = []string{"*"}
 	req.SortBy(strings.Split(sort, ","))
 
-	res, err := i.i.Search(req)
+	res, err := i.index.Search(req)
 	if err != nil {
 		return nil, wrap(err, `searching for coredumps`)
 	}
 
 	for _, d := range res.Hits {
-		raw, err := json.Marshal(d.Fields)
+		var c Coredump
+
+		err := i.mapper.ToStruct(d.Fields, &c)
 		if err != nil {
-			return nil, wrap(err, `marshaling result`)
+			return nil, wrap(err, `mapping to coredump`)
 		}
 
-		var c Coredump
-		err = json.Unmarshal(raw, &c)
-		if err != nil {
-			return nil, wrap(err, `parsing result`)
+		c.Metadata = make(map[string]string)
+		for k, v := range d.Fields {
+			if !strings.HasPrefix(k, "meta.") {
+				continue
+			}
+			if _, ok := v.(string); !ok {
+				return nil, fmt.Errorf(`unexpected type for metadata value %s in core %s: %T`, k, c.UID, v)
+			}
+			c.Metadata[strings.TrimPrefix(k, "meta.")] = v.(string)
 		}
 
 		cores = append(cores, c)

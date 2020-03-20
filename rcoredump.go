@@ -16,20 +16,23 @@ type IndexRequest struct {
 	ExecutableHash string `json:"executable_hash,omitempty"`
 	// Path to the executable on the origin host.
 	ExecutablePath string `json:"executable_path"`
+	// Metadata set by the forwarder configuration.
+	Metadata map[string]string `json:"metadata"`
 }
 
 // Coredump as indexed by the server.
 type Coredump struct {
-	Analyzed       bool      `json:"analyzed"`
-	Date           time.Time `json:"date"`
-	ExecutableHash string    `json:"executable_hash"`
-	ExecutablePath string    `json:"executable_path"`
-	ExecutableSize int64     `json:"executable_size"`
-	Hostname       string    `json:"hostname"`
-	Lang           string    `json:"lang"`
-	Size           int64     `json:"size"`
-	Trace          string    `json:"trace"`
-	UID            string    `json:"uid"`
+	Analyzed       bool              `json:"analyzed"`
+	Date           time.Time         `json:"date"`
+	ExecutableHash string            `json:"executable_hash"`
+	ExecutablePath string            `json:"executable_path"`
+	ExecutableSize int64             `json:"executable_size"`
+	Hostname       string            `json:"hostname"`
+	Lang           string            `json:"lang"`
+	Metadata       map[string]string `json:"metadata" mapper:"-"`
+	Size           int64             `json:"size"`
+	Trace          string            `json:"trace"`
+	UID            string            `json:"uid"`
 }
 
 // Error type for API return values.

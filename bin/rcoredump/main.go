@@ -56,6 +56,7 @@ type service struct {
 	filelog        string
 	printVersion   bool
 	args           []string
+	metadata       map[string]string
 
 	logger log15.Logger
 }
@@ -71,6 +72,7 @@ func (s *service) configure() {
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
 	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into (\"-\" for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredump")
+	fs.Var(conf.MapFlag(&s.metadata), "metadata", "list of metadata to send alongside the coredump (key=value, can be specified multiple times or separated by ';')")
 	fs.String("conf", "/etc/rcoredump/rcoredump.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
 
@@ -159,6 +161,7 @@ func (s *service) run(ctx context.Context) {
 			ExecutablePath:    executable,
 			ExecutableHash:    hash,
 			IncludeExecutable: sendExecutable,
+			Metadata:          s.metadata,
 		})
 		if err != nil {
 			s.logger.Error("sending header", "err", err)
