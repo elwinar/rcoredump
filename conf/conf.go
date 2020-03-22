@@ -138,14 +138,20 @@ func (f *mapFlag) String() string {
 	return fmt.Sprintf(`%q`, f.m)
 }
 
+// Set values in the map from the raw string given. It is split on ';' for
+// multiple values, and on '=' to separated the key from the value. Quoted
+// values aren't handled specifically because there is already a layer of
+// unquoting done either by the command-line or the configuration file parsing.
 func (f *mapFlag) Set(raw string) error {
 	for _, value := range strings.Split(raw, ";") {
-		parts := strings.SplitN(value, "=", 2)
-		if len(parts) == 1 {
-			f.m[parts[0]] = ""
-		} else {
-			f.m[parts[0]] = parts[1]
+		chunks := strings.SplitN(value, "=", 2)
+		if len(chunks) == 1 {
+			f.m[chunks[0]] = ""
+			continue
 		}
+
+		key, val := chunks[0], chunks[1]
+		f.m[key] = val
 	}
 	return nil
 }

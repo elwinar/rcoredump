@@ -64,3 +64,34 @@ func TestParse(t *testing.T) {
 		t.Errorf("incorrect result:\nwanted %#v,\n   got %#v", expected, got)
 	}
 }
+
+func TestMapFlag(t *testing.T) {
+	type dummy struct {
+		m map[string]string
+	}
+
+	got := dummy{}
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.Var(MapFlag(&got.m), "m", "map value")
+
+	args := []string{
+		"-m", "key-1=value-1",
+		"-m", "key-2=value-2",
+		"-m", "key-3=value-3;key-4=value-4",
+	}
+
+	fs.Parse(args)
+
+	expected := dummy{
+		m: map[string]string{
+			"key-1": "value-1",
+			"key-2": "value-2",
+			"key-3": "value-3",
+			"key-4": "value-4",
+		},
+	}
+
+	if !reflect.DeepEqual(expected, got) {
+		t.Errorf("incorrect result:\nwanted %#v,\n   got %#v", expected, got)
+	}
+}
