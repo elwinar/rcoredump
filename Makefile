@@ -3,6 +3,8 @@ build_dir = $(root)/build
 bin_dir = $(root)/bin
 release_dir = $(root)/release
 ldflags="-X main.Version=`git describe --tags`"
+targets=*/amd64
+pkg=github.com/elwinar/rcoredump
 
 .PHONY: help
 help: ## Get help
@@ -20,6 +22,10 @@ install: ## Install the dependencies needed for building the package
 
 .PHONY: build
 build: web rcoredumpd rcoredump monkey ## Build all targets
+
+.PHONY: test
+test: ## Run the package tests
+	go test ./... -race
 
 .PHONY: serve
 serve: ## Run the web interface
@@ -45,12 +51,9 @@ monkey: ## Build the test crashers
 	go build -o $(build_dir) $(bin_dir)/monkey-go
 	gcc -o $(build_dir)/monkey-c $(bin_dir)/monkey-c/*.c
 
-targets=linux/amd64,linux/386
-pkg=github.com/elwinar/rcoredump/bin
-
 .PHONY: release
 release: ## Build the release files
 	rm -rf $(release_dir)
-	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/rcoredumpd
-	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/rcoredump
+	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredumpd
+	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredump
 

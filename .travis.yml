@@ -18,3 +18,4 @@ script:
   - make web
   - make rcoredump
   - make rcoredumpd
+  - make test
