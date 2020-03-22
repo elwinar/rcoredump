@@ -1,4 +1,7 @@
 # path of the directory to store the coredumps into
-dir=/var/lib/rcoredumpd
+data-dir=/var/lib/rcoredumpd
 # address to bind the HTTP server to
 bind=0.0.0.0:1105
+# store and index configuration
+store-type=file
+index-type=bleve
