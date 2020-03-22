@@ -13,28 +13,51 @@ import (
 )
 
 type analyzeProcess struct {
-	log       log15.Logger
-	uid       string
-	index     Index
-	dir       string
 	analyzers map[string]*template.Template
+	dataDir   string
+	index     Index
+	log       log15.Logger
+	store     Store
+	uid       string
 
-	core rcoredump.Coredump
-	err  error
+	core       Coredump
+	err        error
+	file       *os.File
+	executable *os.File
 }
 
+// init the process by finding the index core and the associated files.
 func (p *analyzeProcess) init() {
-	p.log = p.log.New("uid", p.uid)
-}
+	if p.err != nil {
+		return
+	}
 
-// findCore do a search on the coredump index so we can get additionnal info on
-// the executable and have a document to update.
-func (p *analyzeProcess) findCore() {
 	var err error
 	p.core, err = p.index.Find(p.uid)
 	if err != nil {
 		p.err = wrap(err, "finding indexed core")
 		return
+	}
+
+	p.executable, err = p.store.Executable(p.core.ExecutableHash)
+	if err != nil {
+		p.err = wrap(err, `opening core file`)
+		return
+	}
+
+	p.file, err = p.store.Core(p.uid)
+	if err != nil {
+		p.err = wrap(err, `opening executable file`)
+	}
+}
+
+func (p *analyzeProcess) cleanup() {
+	if p.executable != nil {
+		p.executable.Close()
+	}
+
+	if p.file != nil {
+		p.file.Close()
 	}
 }
 
@@ -44,19 +67,19 @@ func (p *analyzeProcess) computeSizes() {
 		return
 	}
 
-	corestat, err := os.Stat(corepath(p.dir, p.core.UID))
+	cinfo, err := os.Stat(p.file.Name())
 	if err != nil {
 		p.err = wrap(err, `sizing core file`)
 		return
 	}
-	p.core.Size = corestat.Size()
+	p.core.Size = cinfo.Size()
 
-	exestat, err := os.Stat(exepath(p.dir, p.core.ExecutableHash))
+	einfo, err := os.Stat(p.executable.Name())
 	if err != nil {
 		p.err = wrap(err, `sizing executable file`)
 		return
 	}
-	p.core.ExecutableSize = exestat.Size()
+	p.core.ExecutableSize = einfo.Size()
 }
 
 // detectLanguage looks at an executable file's sections to guess which
@@ -71,9 +94,8 @@ func (p *analyzeProcess) detectLanguage() {
 		return
 	}
 
-	exefile := exepath(p.dir, p.core.ExecutableHash)
-	p.log.Debug("loading executable", "exefile", exefile)
-	file, err := elf.Open(exepath(p.dir, p.core.ExecutableHash))
+	p.log.Debug("loading executable", "path", p.executable.Name())
+	file, err := elf.NewFile(p.executable)
 	if err != nil {
 		p.err = wrap(err, `opening executable file`)
 		return
@@ -107,9 +129,9 @@ func (p *analyzeProcess) extractStackTrace() {
 
 	var buf bytes.Buffer
 	err := tpl.Execute(&buf, map[string]string{
-		"Executable": exepath(p.dir, p.core.ExecutableHash),
-		"Core":       corepath(p.dir, p.core.UID),
-		"Dir":        p.dir,
+		"Core":       p.file.Name(),
+		"DataDir":    p.dataDir,
+		"Executable": p.executable.Name(),
 	})
 	p.log.Debug("extracting stack trace", "cmd", buf.String())
 

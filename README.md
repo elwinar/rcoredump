@@ -71,20 +71,20 @@ described [here](https://golang.org/pkg/flag/#hdr-Command_line_flag_syntax).
 Usage of rcoredumpd: rcoredumpd [options]
   -bind string
         address to listen to (default "localhost:1105")
-  -bleve.path string
-        path of the directory to store the coredumps into (default "/var/lib/rcoredumpd/index")
   -c.analyzer string
         command to run to analyze C core dumps (default "gdb --nx --ex bt --batch {{ .Executable }} {{ .Core }}")
   -conf string
         configuration file to load (default "/etc/rcoredump/rcoredumpd.conf")
-  -dir string
-        path of the directory to store data into (default "/var/lib/rcoredumpd")
+  -data-dir string
+        directory to store server's data (default "/var/lib/rcoredumpd")
   -filelog string
         path of the file to log into ("-" for stdout) (default "-")
   -go.analyzer string
-        command to run to analyze Go core dumps (default "dlv core {{ .Executable }} {{ .Core }} --init {{ .Dir }}/delve.cmd")
+        command to run to analyze Go core dumps (default "dlv core {{ .Executable }} {{ .Core }} --init {{ .DataDir}}/delve.cmd")
   -index-type string
         type of index to use (values: bleve) (default "bleve")
+  -store-type string
+        type of store to use (values: file) (default "file")
   -syslog
         output logs to syslog
   -version

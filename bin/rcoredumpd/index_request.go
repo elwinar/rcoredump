@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 
 	"github.com/elwinar/rcoredump"
 	"github.com/inconshreveable/log15"
@@ -17,8 +16,8 @@ import (
 type indexRequest struct {
 	log   log15.Logger
 	r     *http.Request
-	dir   string
 	index Index
+	store Store
 
 	err error
 	uid string
@@ -84,18 +83,7 @@ func (r *indexRequest) readCore() {
 		return
 	}
 
-	f, err := os.Create(corepath(r.dir, r.uid))
-	if err != nil {
-		r.err = wrap(err, "creating core file")
-		return
-	}
-	defer f.Close()
-
-	_, err = io.Copy(f, r.reader)
-	if err != nil {
-		r.err = wrap(err, "reading core")
-		return
-	}
+	r.err = r.store.StoreCore(r.uid, r.reader)
 }
 
 func (r *indexRequest) readExecutable() {
@@ -109,18 +97,7 @@ func (r *indexRequest) readExecutable() {
 		return
 	}
 
-	f, err := os.Create(exepath(r.dir, r.ExecutableHash))
-	if err != nil {
-		r.err = wrap(err, "creating executable file")
-		return
-	}
-	defer f.Close()
-
-	_, err = io.Copy(f, r.reader)
-	if err != nil {
-		r.err = wrap(err, "writing executable file")
-		return
-	}
+	r.err = r.store.StoreExecutable(r.ExecutableHash, r.reader)
 }
 
 func (r *indexRequest) indexCore() {

@@ -16,11 +16,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/elwinar/rcoredump"
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
 	"github.com/elwinar/rcoredump/conf"
+
 	"github.com/inconshreveable/log15"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
@@ -57,23 +59,23 @@ func main() {
 type service struct {
 	// Configuration.
 	bind         string
+	dataDir      string
 	syslog       bool
 	filelog      string
 	printVersion bool
 	indexType    string
-	blevePath    string
-	dir          string
+	storeType    string
 	goAnalyzer   string
 	cAnalyzer    string
+	analyzers    map[string]*template.Template
 
-	// State.
-	logger    log15.Logger
-	received  *prometheus.CounterVec
-	router    *httprouter.Router
-	stack     *negroni.Negroni
-	index     Index
-	queue     chan string
-	analyzers map[string]*template.Template
+	// Dependencies
+	assets   http.FileSystem
+	index    Index
+	logger   log15.Logger
+	queue    chan string
+	received *prometheus.CounterVec
+	store    Store
 }
 
 // configure read and validate the configuration of the service and populate
@@ -87,19 +89,17 @@ func (s *service) configure() {
 
 	// General options.
 	fs.StringVar(&s.bind, "bind", "localhost:1105", "address to listen to")
+	fs.StringVar(&s.dataDir, "data-dir", "/var/lib/rcoredumpd", "directory to store server's data")
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
 	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into (\"-\" for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
 
-	// Index options.
+	// Interface options.
 	fs.StringVar(&s.indexType, "index-type", "bleve", "type of index to use (values: bleve)")
-	fs.StringVar(&s.blevePath, "bleve.path", "/var/lib/rcoredumpd/index", "path of the directory to store the coredumps into")
+	fs.StringVar(&s.storeType, "store-type", "file", "type of store to use (values: file)")
 
-	// Store options.
-	fs.StringVar(&s.dir, "dir", "/var/lib/rcoredumpd", "path of the directory to store data into")
-
-	// Analyze options.
-	fs.StringVar(&s.goAnalyzer, "go.analyzer", "dlv core {{ .Executable }} {{ .Core }} --init {{ .Dir }}/delve.cmd", "command to run to analyze Go core dumps")
+	// Analyzer options.
+	fs.StringVar(&s.goAnalyzer, "go.analyzer", "dlv core {{ .Executable }} {{ .Core }} --init {{ .DataDir}}/delve.cmd", "command to run to analyze Go core dumps")
 	fs.StringVar(&s.cAnalyzer, "c.analyzer", "gdb --nx --ex bt --batch {{ .Executable }} {{ .Core }}", "command to run to analyze C core dumps")
 
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
@@ -115,9 +115,7 @@ func (s *service) init() (err error) {
 		os.Exit(0)
 	}
 
-	// Logger
 	s.logger = log15.New()
-
 	format := log15.LogfmtFormat()
 	var handler log15.Handler
 	if s.syslog {
@@ -132,28 +130,52 @@ func (s *service) init() (err error) {
 	}
 	s.logger.SetHandler(handler)
 
-	// Data dir
-	s.logger.Debug("creating data directories")
-	for _, dir := range []string{
-		s.dir,
-		exepath(s.dir, ""),
-		corepath(s.dir, ""),
-	} {
-		err = os.Mkdir(dir, os.ModeDir|0774)
-		if err != nil && !errors.Is(err, os.ErrExist) {
-			return wrap(err, `creating data directory`)
-		}
+	s.logger.Debug("registering metrics")
+	s.received = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "rcoredumpd_received_total",
+		Help: "number of core dump received",
+	}, []string{"hostname", "executable"})
+	prometheus.MustRegister(s.received)
+
+	s.logger.Debug("retrieving embeded assets")
+	s.assets, err = fs.New()
+	if err != nil {
+		return wrap(err, `retrieving embeded assets`)
 	}
 
-	// Ensure the default command file for Go is in the data directory.
-	if _, err := os.Stat(filepath.Join(s.dir, "delve.cmd")); os.IsNotExist(err) {
-		err := ioutil.WriteFile(filepath.Join(s.dir, "delve.cmd"), []byte("bt\nq\n"), 0774)
-		if err != nil {
-			return wrap(err, `writing default delve command file`)
-		}
+	s.logger.Debug("initializing data directory")
+	err = os.Mkdir(s.dataDir, os.ModeDir|0774)
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		return wrap(err, `creating data directory`)
+	}
+	err = ioutil.WriteFile(filepath.Join(s.dataDir, "delve.cmd"), []byte("bt\nq\n"), 0774)
+	if err != nil {
+		return wrap(err, `writing default delve command file`)
 	}
 
-	// Parse the analyzer command templates.
+	s.logger.Debug("initializing store")
+	switch s.storeType {
+	case "file":
+		s.store, err = NewFileStore(filepath.Join(s.dataDir, "store"))
+	default:
+		return fmt.Errorf(`unknown store type %s`, s.storeType)
+	}
+	if err != nil {
+		return wrap(err, `initializing store`)
+	}
+
+	s.logger.Debug("initializing index")
+	switch s.indexType {
+	case "bleve":
+		s.index, err = NewBleveIndex(filepath.Join(s.dataDir, "index"))
+	default:
+		return fmt.Errorf(`unknown index type %s`, s.indexType)
+	}
+	if err != nil {
+		return wrap(err, `initializing index`)
+	}
+
+	s.logger.Debug("parsing analyzer commands")
 	s.analyzers = make(map[string]*template.Template)
 	for lang, src := range map[string]string{
 		rcoredump.LangGo: s.goAnalyzer,
@@ -171,101 +193,82 @@ func (s *service) init() (err error) {
 		s.analyzers[lang] = tpl
 	}
 
-	// Prometheus metrics
-	s.logger.Debug("registering metrics")
-	s.received = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "rcoredumpd_received_total",
-		Help: "number of core dump received",
-	}, []string{"hostname", "executable"})
-	prometheus.MustRegister(s.received)
-
-	// Static files
-	s.logger.Debug("fetching static files")
-	public, err := fs.New()
-	if err != nil {
-		return wrap(err, `retrieving assets`)
-	}
-
-	// API Routes
-	s.logger.Debug("registering routes")
-	s.router = httprouter.New()
-	s.router.NotFound = http.FileServer(public)
-
-	s.router.POST("/cores", s.indexCore)
-	s.router.GET("/cores", s.searchCore)
-	s.router.GET("/cores/:uid", s.getCore)
-	s.router.POST("/cores/:uid/_analyze", s.analyzeCore)
-
-	s.router.HEAD("/executables/:hash", s.lookupExecutable)
-	s.router.GET("/executables/:hash", s.getExecutable)
-
-	s.router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
-
-	// Middleware stack
-	s.stack = negroni.New()
-	s.stack.Use(negroni.NewRecovery())
-	s.stack.Use(negroni.HandlerFunc(s.logRequest))
-	s.stack.Use(cors.Default())
-	s.stack.UseHandler(s.router)
-
-	// Fulltext Index
-	switch s.indexType {
-	case "bleve":
-		s.index, err = NewBleveIndex(s.blevePath)
-		if err != nil {
-			return wrap(err, `opening index`)
-		}
-	}
-
-	// Analysis channel and routines.
-	s.logger.Debug("starting analysis queue")
 	s.queue = make(chan string)
-	go func() {
-		for uid := range s.queue {
-			s.analyze(uid)
-		}
-	}()
 
 	return nil
 }
 
 // run does the actual running of the service until the context is closed.
 func (s *service) run(ctx context.Context) {
-	// Look for cores not yet analyzed and add them to the queue.
+	var wg sync.WaitGroup
+
+	s.logger.Debug("starting analysis queue")
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for uid := range s.queue {
+			s.analyze(uid)
+		}
+		s.logger.Debug("stopping analysis queue")
+	}()
+
+	s.logger.Debug("looking for leftwover cores to analyze")
 	go func() {
 		uids, err := s.index.FindUnanalyzed()
 		if err != nil {
 			s.logger.Error("initializing analysis", "err", err)
 			return
 		}
-
 		if len(uids) == 0 {
 			return
 		}
 
-		s.logger.Debug("found leftover dumps to analyze", "count", len(uids))
+		s.logger.Debug("found leftover cores to analyze", "count", len(uids))
+	loop:
 		for _, uid := range uids {
-			s.queue <- uid
+			select {
+			case <-ctx.Done():
+				break loop
+			case s.queue <- uid:
+			}
 		}
+		s.logger.Debug("done analyzing leftover cores")
 	}()
 
+	s.logger.Debug("registering routes")
+	router := httprouter.New()
+	router.NotFound = http.FileServer(s.assets)
+	router.POST("/cores", s.indexCore)
+	router.GET("/cores", s.searchCore)
+	router.GET("/cores/:uid", s.getCore)
+	router.POST("/cores/:uid/_analyze", s.analyzeCore)
+	router.HEAD("/executables/:hash", s.lookupExecutable)
+	router.GET("/executables/:hash", s.getExecutable)
+	router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
+
+	s.logger.Debug("registering middlewares")
+	stack := negroni.New()
+	stack.Use(negroni.NewRecovery())
+	stack.Use(negroni.HandlerFunc(s.logRequest))
+	stack.Use(cors.Default())
+	stack.UseHandler(router)
+
+	s.logger.Debug("starting server")
 	server := &http.Server{
 		Addr:    s.bind,
-		Handler: s.stack,
+		Handler: stack,
 	}
-
 	go func() {
 		<-ctx.Done()
 		ctx, _ := context.WithTimeout(ctx, 1*time.Minute)
+		close(s.queue)
 		server.Shutdown(ctx)
 	}()
-
-	s.logger.Info("starting")
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		s.logger.Error("closing server", "err", err)
 	}
-	s.logger.Info("stopping")
+	s.logger.Info("stopping server")
 }
 
 // logRequest is the logging middleware for the HTTP server.
@@ -291,10 +294,10 @@ func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.
 // it up.
 func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	req := &indexRequest{
+		index: s.index,
 		log:   s.logger,
 		r:     r,
-		dir:   s.dir,
-		index: s.index,
+		store: s.store,
 	}
 	req.init()
 	req.read()
@@ -348,19 +351,20 @@ func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprout
 // trace extraction, etc.
 func (s *service) analyze(uid string) {
 	p := &analyzeProcess{
-		uid:       uid,
-		log:       s.logger,
-		index:     s.index,
-		dir:       s.dir,
 		analyzers: s.analyzers,
+		dataDir:   s.dataDir,
+		index:     s.index,
+		log:       s.logger.New("uid", uid),
+		store:     s.store,
+		uid:       uid,
 	}
 
 	p.init()
-	p.findCore()
 	p.computeSizes()
 	p.detectLanguage()
 	p.extractStackTrace()
 	p.indexResults()
+	p.cleanup()
 
 	if p.err != nil {
 		s.logger.Error("analyzing", "core", uid, "err", p.err)
@@ -386,7 +390,6 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 	if len(rawSize) == 0 {
 		rawSize = "20"
 	}
-
 	size, err := strconv.Atoi(rawSize)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, wrap(err, "invalid size parameter"))
@@ -404,7 +407,7 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 
 // getCore handles the requests to get the actual core dump file.
 func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	f, err := os.Open(filepath.Join(s.dir, "cores", p.ByName("uid")))
+	f, err := s.store.Core(p.ByName("uid"))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -418,15 +421,15 @@ func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.P
 // lookupExecutable handles the requests to check if a executable matching the given
 // hash actually exists. It doesn't return anything (except in case of error).
 func (s *service) lookupExecutable(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	_, err := os.Stat(exepath(s.dir, p.ByName("hash")))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	exists, err := s.store.ExecutableExists(p.ByName("hash"))
+	if err != nil {
 		s.logger.Warn("looking up executable", "hash", p.ByName("hash"), "err", err)
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	if err != nil {
-		writeError(w, http.StatusNotFound, err)
+	if !exists {
+		writeError(w, http.StatusNotFound, errors.New(`not found`))
 		return
 	}
 
@@ -435,7 +438,7 @@ func (s *service) lookupExecutable(w http.ResponseWriter, r *http.Request, p htt
 
 // getExecutable handles the requests to get the actual executable.
 func (s *service) getExecutable(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	f, err := os.Open(exepath(s.dir, p.ByName("hash")))
+	f, err := s.store.Executable(p.ByName("hash"))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
@@ -467,12 +470,4 @@ func writeError(w http.ResponseWriter, status int, err error) {
 // wrap an error using the provided message and arguments.
 func wrap(err error, msg string, args ...interface{}) error {
 	return fmt.Errorf("%s: %w", fmt.Sprintf(msg, args...), err)
-}
-
-func exepath(base, file string) string {
-	return filepath.Join(base, "executables", file)
-}
-
-func corepath(base, file string) string {
-	return filepath.Join(base, "cores", file)
 }
