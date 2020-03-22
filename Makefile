@@ -3,7 +3,7 @@ build_dir = $(root)/build
 bin_dir = $(root)/bin
 release_dir = $(root)/release
 ldflags="-X main.Version=`git describe --tags`"
-targets=darwin/amd64,dragonfly/amd64,freebsd/amd64,linux/amd64,netbsd/amd64,openbsd/amd64
+targets=linux/amd64
 pkg=github.com/elwinar/rcoredump
 
 .PHONY: help
@@ -53,6 +53,7 @@ monkey: ## Build the test crashers
 
 .PHONY: release
 release: ## Build the release files
+	mkdir $(release_dir)
 	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredumpd
 	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredump
 
