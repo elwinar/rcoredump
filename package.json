@@ -4,12 +4,12 @@
   "description": "_rcoredump_ is meant to be a toolbox for aggregating, indexing, and searching core dumps. Think ELK for core dumps.",
   "dependencies": {
     "normalize.css": "^8.0.1",
-    "react": "^16.13.0",
-    "react-dom": "^16.13.0"
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.8.7",
-    "@babel/preset-react": "^7.8.3",
+    "@babel/core": "^7.9.0",
+    "@babel/preset-react": "^7.9.1",
     "autoprefixer": "^9.7.4",
     "parcel-bundler": "^1.12.4",
     "postcss-modules": "^1.5.0",
