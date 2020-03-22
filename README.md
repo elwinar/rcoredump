@@ -16,7 +16,7 @@ _rcoredump_ is composed of two main softwares:
 
 ## Status: Alpha
 
-THe project is in its infancy stage. While it can be used already for some
+The project is in its infancy stage. While it can be used already for some
 usages, many things may change between now and the v1, and no feature is
 guaranteed to stay the same or even be present in future releases. Of course,
 we will try to stay compatible as much as possible, but if we can't, you've
@@ -140,7 +140,7 @@ disk.
 
 Feel free to open an issue, or contact me by mail at
 `romain.baugue@elwinar.com`. I won't guarantee and instant solution, but I'm
-always happy to help someone ge things working.
+always happy to help someone get things working.
 
 ## Contributing
 
