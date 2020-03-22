@@ -6,7 +6,7 @@ ldflags="-X main.Version=`git describe --tags`"
 
 .PHONY: help
 help: ## Get help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN (FS = ":.*?## "); (printf "\033[36m%-10s\033[0m %s\n", $$1, $$2)'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: all
 all: install build ## Install dependencies & build all targets
