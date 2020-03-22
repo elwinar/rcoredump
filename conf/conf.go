@@ -18,7 +18,7 @@ import (
 // will default to true.
 // The priority order is command line, conf file, then default value.
 func Parse(fs *flag.FlagSet, conf string) {
-	err := parse(fs, conf)
+	err := parse(fs, os.Args[1:], conf)
 	if err == nil {
 		return
 	}
@@ -35,8 +35,18 @@ func Parse(fs *flag.FlagSet, conf string) {
 	}
 }
 
-func parse(fs *flag.FlagSet, conf string) error {
-	fs.Parse(os.Args[1:])
+func parse(fs *flag.FlagSet, args []string, conf string) error {
+	// Can't work on an empty flagset.
+	if fs == nil {
+		return errors.New(`nil flagset`)
+	}
+
+	fs.Parse(args)
+
+	// If there is no configuration flag given, there is nothing to do.
+	if conf == "" {
+		return nil
+	}
 
 	// The flag package doesn't provide a view of which flags have been
 	// set. The Visit method, however, is iterating on the
