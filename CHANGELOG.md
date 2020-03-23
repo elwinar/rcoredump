@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [v0.6.1](https://github.com/elwinar/rcoredump/releases/tag/v0.6.1) - 2020-03-23
+### Internal
+- Cleanup `go.mod` dependencies for unused packages
+
 ## [v0.6.0](https://github.com/elwinar/rcoredump/releases/tag/v0.6.0) - 2020-03-22
 ### Added
 - `metadata` options accept a list of key-value pairs to send alongside the coredump to the indexer
