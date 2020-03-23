@@ -9,5 +9,4 @@ if (document.config === undefined) {
 	};
 }
 
-
 ReactDOM.render(<App />, document.getElementById('root'));

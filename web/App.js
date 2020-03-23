@@ -11,6 +11,11 @@ function decodeQuery(q) {
 
 const defaultQuery = {q: '*', sort: '-date', size: '20'};
 
+// Those variables are defined at compile-time by Parcel.
+const Version = process.env.VERSION;
+const BuiltAt = process.env.BUILT_AT;
+const Commit = process.env.COMMIT;
+
 function formatSize(bytes) {
 	const threshold = 1000;
 	const units = ['B', 'KB','MB','GB','TB','PB','EB','ZB','YB'];
@@ -52,7 +57,7 @@ function App() {
 	return (
 		<React.Fragment>
 			<header className={styles.Header}>
-				<h1>RCoredump</h1>
+				<h1>RCoredump <span>{Version}</span></h1>
 			</header>
 			<Searchbar setQuery={setQuery} query={query} />
 			<Table entries={entries} />
