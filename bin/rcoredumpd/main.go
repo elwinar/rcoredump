@@ -32,7 +32,11 @@ import (
 	"github.com/urfave/negroni"
 )
 
-var Version = "N/C"
+var (
+	Version = "N/C"
+	BuiltAt = "N/C"
+	Commit  = "N/C"
+)
 
 // main is tasked to bootstrap the service and notify of termination signals.
 func main() {
@@ -238,6 +242,7 @@ func (s *service) run(ctx context.Context) {
 	s.logger.Debug("registering routes")
 	router := httprouter.New()
 	router.NotFound = http.FileServer(s.assets)
+	router.GET("/about", s.about)
 	router.POST("/cores", s.indexCore)
 	router.GET("/cores", s.searchCore)
 	router.GET("/cores/:uid", s.getCore)
@@ -285,6 +290,14 @@ func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.
 		"path", r.URL.Path,
 		"status", res.Status(),
 	)
+}
+
+func (s *service) about(rw http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	write(rw, http.StatusOK, map[string]string{
+		"built_at": BuiltAt,
+		"commit":   Commit,
+		"version":  Version,
+	})
 }
 
 // indexCore handle the requests for adding cores to the service. It exposes a

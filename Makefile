@@ -2,7 +2,12 @@ root = $(shell pwd)
 build_dir = $(root)/build
 bin_dir = $(root)/bin
 release_dir = $(root)/release
-ldflags="-X main.Version=`git describe --tags`"
+
+tag = $(shell git describe --tags)
+commit = $(shell git rev-parse @)
+built_at = $(shell date '+%FT%T%:z')
+ldflags="-X main.Version=${tag} -X main.Commit=${commit} -X main.BuiltAt=${built_at}"
+
 targets=linux/amd64
 pkg=github.com/elwinar/rcoredump
 
