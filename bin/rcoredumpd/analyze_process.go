@@ -133,7 +133,7 @@ func (p *analyzeProcess) extractStackTrace() {
 		"DataDir":    p.dataDir,
 		"Executable": p.executable.Name(),
 	})
-	p.log.Debug("extracting stack trace", "cmd", buf.String())
+	p.log.Debug("extracting stack trace")
 
 	cmd := strings.Split(buf.String(), " ")
 	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
@@ -143,7 +143,7 @@ func (p *analyzeProcess) extractStackTrace() {
 	}
 
 	p.core.Trace = string(out)
-	p.log.Debug("extracted stack trace", "stack", p.core.Trace)
+	p.log.Debug("extracted stack trace")
 }
 
 func (p *analyzeProcess) indexResults() {
@@ -152,7 +152,7 @@ func (p *analyzeProcess) indexResults() {
 	}
 
 	p.core.Analyzed = true
-	p.log.Debug("indexing analysis result", "result", p.core)
+	p.log.Debug("indexing analysis result")
 	err := p.index.Index(p.core)
 	if err != nil {
 		p.err = wrap(err, "indexing results")
