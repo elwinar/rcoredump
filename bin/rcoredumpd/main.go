@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"log/syslog"
@@ -15,7 +14,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -71,7 +69,6 @@ type service struct {
 	storeType    string
 	goAnalyzer   string
 	cAnalyzer    string
-	analyzers    map[string]*template.Template
 
 	// Dependencies
 	assets   http.FileSystem
@@ -103,8 +100,8 @@ func (s *service) configure() {
 	fs.StringVar(&s.storeType, "store-type", "file", "type of store to use (values: file)")
 
 	// Analyzer options.
-	fs.StringVar(&s.goAnalyzer, "go.analyzer", "dlv core {{ .Executable }} {{ .Core }} --init {{ .DataDir}}/delve.cmd", "command to run to analyze Go core dumps")
-	fs.StringVar(&s.cAnalyzer, "c.analyzer", "gdb --nx --ex bt --batch {{ .Executable }} {{ .Core }}", "command to run to analyze C core dumps")
+	fs.StringVar(&s.goAnalyzer, "go.analyzer", "bt", "delve command to run to generate the stack trace for Go coredumps")
+	fs.StringVar(&s.cAnalyzer, "c.analyzer", "bt", "gdb command to run to generate the stack trace for C coredumps")
 
 	fs.String("conf", "/etc/rcoredump/rcoredumpd.conf", "configuration file to load")
 	conf.Parse(fs, "conf")
@@ -152,7 +149,13 @@ func (s *service) init() (err error) {
 	if err != nil && !errors.Is(err, os.ErrExist) {
 		return wrap(err, `creating data directory`)
 	}
-	err = ioutil.WriteFile(filepath.Join(s.dataDir, "delve.cmd"), []byte("bt\nq\n"), 0774)
+
+	err = ioutil.WriteFile(filepath.Join(s.dataDir, "delve.cmd"), []byte(s.goAnalyzer+"\nq\n"), 0774)
+	if err != nil {
+		return wrap(err, `writing default delve command file`)
+	}
+
+	err = ioutil.WriteFile(filepath.Join(s.dataDir, "gdb.cmd"), []byte(s.cAnalyzer+"\nq\n"), 0774)
 	if err != nil {
 		return wrap(err, `writing default delve command file`)
 	}
@@ -177,24 +180,6 @@ func (s *service) init() (err error) {
 	}
 	if err != nil {
 		return wrap(err, `initializing index`)
-	}
-
-	s.logger.Debug("parsing analyzer commands")
-	s.analyzers = make(map[string]*template.Template)
-	for lang, src := range map[string]string{
-		rcoredump.LangGo: s.goAnalyzer,
-		rcoredump.LangC:  s.cAnalyzer,
-	} {
-		src = strings.TrimSpace(src)
-		if len(src) == 0 {
-			continue
-		}
-
-		tpl, err := template.New(lang).Parse(src)
-		if err != nil {
-			return wrap(err, "parsing analyze command for %s", lang)
-		}
-		s.analyzers[lang] = tpl
 	}
 
 	s.queue = make(chan string)
@@ -364,12 +349,11 @@ func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprout
 // trace extraction, etc.
 func (s *service) analyze(uid string) {
 	p := &analyzeProcess{
-		analyzers: s.analyzers,
-		dataDir:   s.dataDir,
-		index:     s.index,
-		log:       s.logger.New("uid", uid),
-		store:     s.store,
-		uid:       uid,
+		dataDir: s.dataDir,
+		index:   s.index,
+		log:     s.logger.New("uid", uid),
+		store:   s.store,
+		uid:     uid,
 	}
 
 	p.init()

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"debug/elf"
+	"fmt"
 	"html/template"
 	"os"
 	"os/exec"
@@ -121,22 +121,19 @@ func (p *analyzeProcess) extractStackTrace() {
 		return
 	}
 
-	tpl, ok := p.analyzers[p.core.Lang]
-	if !ok {
-		p.log.Warn("no trace analyzer for language", "lang", p.core.Lang)
+	var cmd string
+	switch p.core.Lang {
+	case rcoredump.LangC:
+		cmd = fmt.Sprintf("gdb --nx --command %s/gdb.cmd --batch %s %s", p.dataDir, p.executable.Name(), p.file.Name())
+	case rcoredump.LangGo:
+		cmd = fmt.Sprintf("dlv core %s %s --init %s/delve.cmd", p.executable.Name(), p.file.Name(), p.dataDir)
+	default:
+		p.err = wrap(fmt.Errorf(`unhandled lang %s`, p.core.Lang), "extracting stack trace")
 		return
 	}
 
-	var buf bytes.Buffer
-	err := tpl.Execute(&buf, map[string]string{
-		"Core":       p.file.Name(),
-		"DataDir":    p.dataDir,
-		"Executable": p.executable.Name(),
-	})
-	p.log.Debug("extracting stack trace")
-
-	cmd := strings.Split(buf.String(), " ")
-	out, err := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+	chunks := strings.Split(cmd, " ")
+	out, err := exec.Command(chunks[0], chunks[1:]...).CombinedOutput()
 	if err != nil {
 		p.err = wrap(err, "extracting stack trace: %s", string(out))
 		return

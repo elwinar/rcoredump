@@ -2,6 +2,9 @@
 data-dir=/var/lib/rcoredumpd
 # address to bind the HTTP server to
 bind=0.0.0.0:1105
-# store and index configuration
+# store and index
 store-type=file
 index-type=bleve
+# analysis commands
+c.analyzer=bt -full
+go.analyzer=bt -full

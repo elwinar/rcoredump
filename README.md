@@ -24,6 +24,10 @@ been warned.
 
 ## Installation
 
+The server requires both [gdb](https://github.com/bminor/binutils-gdb) and
+[delve](https://github.com/go-delve/delve) to be installed to be able to
+extract the stack traces.
+
 ### From releases
 
 The simplest way to install _rcoredump_ is to use the repository's [release
@@ -72,7 +76,7 @@ Usage of rcoredumpd: rcoredumpd [options]
   -bind string
         address to listen to (default "localhost:1105")
   -c.analyzer string
-        command to run to analyze C core dumps (default "gdb --nx --ex bt --batch {{ .Executable }} {{ .Core }}")
+        gdb command to run to generate the stack trace for C coredumps (default "bt")
   -conf string
         configuration file to load (default "/etc/rcoredump/rcoredumpd.conf")
   -data-dir string
@@ -80,7 +84,7 @@ Usage of rcoredumpd: rcoredumpd [options]
   -filelog string
         path of the file to log into ("-" for stdout) (default "-")
   -go.analyzer string
-        command to run to analyze Go core dumps (default "dlv core {{ .Executable }} {{ .Core }} --init {{ .DataDir}}/delve.cmd")
+        delve command to run to generate the stack trace for Go coredumps (default "bt")
   -index-type string
         type of index to use (values: bleve) (default "bleve")
   -store-type string

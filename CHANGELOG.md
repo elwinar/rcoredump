@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - /about endpoint with build information
 - Version of the webapp in the webapp's header
 - ForwarderVersion and IndexerVersion in the indexed fields
+### Changed
+- The `c.analyzer` and `go.analyzer` options now take the gdb or delve commands to execute on the coredump, instead of full shell commands (#27)
 ### Fixed
 - Case of the fields for sorting is back to lowercase (#26)
 
