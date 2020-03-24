@@ -22,6 +22,19 @@ var (
 	ErrNotFound = errors.New(`not found`)
 )
 
+type BleveIndex struct {
+	// the index is the actual struct we are interfacing with.
+	index bleve.Index
+
+	// the mapper is used to convert between the Coredump struct itself and
+	// the map[string]interface{} used internally by the bleve index. The
+	// issue is that the types of fields allowed by bleve are quite
+	// limited, for example Metadata, so we need to fake it using meta.x
+	// fields. In addition, this allows searching on those fields, which
+	// isn't possible by default.
+	mapper *structmapper.Mapper
+}
+
 func NewBleveIndex(path string) (Index, error) {
 	_, err := os.Stat(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -38,7 +51,9 @@ func NewBleveIndex(path string) (Index, error) {
 		return nil, wrap(err, `opening index`)
 	}
 
-	mapper, err := structmapper.NewMapper()
+	// Initialize the structmapper to use the JSON tag. This avoid having
+	// to re-define every field with yet another tag.
+	mapper, err := structmapper.NewMapper(structmapper.OptionTagName("json"))
 	if err != nil {
 		return nil, wrap(err, `initializing mapper`)
 	}
@@ -47,19 +62,6 @@ func NewBleveIndex(path string) (Index, error) {
 		index:  index,
 		mapper: mapper,
 	}, nil
-}
-
-type BleveIndex struct {
-	// the index is the actual struct we are interfacing with.
-	index bleve.Index
-
-	// the mapper is used to convert between the Coredump struct itself and
-	// the map[string]interface{} used internally by the bleve index. The
-	// issue is that the types of fields allowed by bleve are quite
-	// limited, for example Metadata, so we need to fake it using meta.x
-	// fields. In addition, this allows searching on those fields, which
-	// isn't possible by default.
-	mapper *structmapper.Mapper
 }
 
 func (i BleveIndex) Find(uid string) (c Coredump, err error) {

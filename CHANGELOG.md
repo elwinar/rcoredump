@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - /about endpoint with build information
 - Version of the webapp in the webapp's header
 - ForwarderVersion and IndexerVersion in the indexed fields
+### Fixed
+- Case of the fields for sorting is back to lowercase (#26)
 
 ## [v0.6.1](https://github.com/elwinar/rcoredump/releases/tag/v0.6.1) - 2020-03-23
 ### Internal

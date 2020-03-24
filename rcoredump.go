@@ -33,7 +33,7 @@ type Coredump struct {
 	Hostname         string            `json:"hostname"`
 	IndexerVersion   string            `json:"indexer_version"`
 	Lang             string            `json:"lang"`
-	Metadata         map[string]string `json:"metadata" mapper:"-"`
+	Metadata         map[string]string `json:"metadata"`
 	Size             int64             `json:"size"`
 	Trace            string            `json:"trace"`
 	UID              string            `json:"uid"`
