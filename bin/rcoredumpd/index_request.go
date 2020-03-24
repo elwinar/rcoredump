@@ -106,13 +106,15 @@ func (r *indexRequest) indexCore() {
 	}
 
 	err := r.index.Index(Coredump{
-		UID:            r.uid,
-		Date:           r.Date,
-		Hostname:       r.Hostname,
-		ExecutablePath: r.ExecutablePath,
-		ExecutableHash: r.ExecutableHash,
-		Metadata:       r.Metadata,
-		Analyzed:       false,
+		Analyzed:         false,
+		Date:             r.Date,
+		ExecutableHash:   r.ExecutableHash,
+		ExecutablePath:   r.ExecutablePath,
+		ForwarderVersion: r.ForwarderVersion,
+		Hostname:         r.Hostname,
+		IndexerVersion:   Version,
+		Metadata:         r.Metadata,
+		UID:              r.uid,
 	})
 	if err != nil {
 		r.err = wrap(err, "indexing core")

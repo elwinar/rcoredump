@@ -3,7 +3,7 @@ build_dir = $(root)/build
 bin_dir = $(root)/bin
 release_dir = $(root)/release
 
-tag = $(shell git describe --tags)
+tag = $(shell git describe --tags --dirty)
 commit = $(shell git rev-parse @)
 built_at = $(shell date '+%FT%T%:z')
 ldflags="-X main.Version=${tag} -X main.Commit=${commit} -X main.BuiltAt=${built_at}"

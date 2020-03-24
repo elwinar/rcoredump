@@ -91,8 +91,6 @@ func (i BleveIndex) Find(uid string) (c Coredump, err error) {
 		c.Metadata[strings.TrimPrefix(k, "meta.")] = v.(string)
 	}
 
-	fmt.Println("find", c)
-
 	return c, nil
 }
 

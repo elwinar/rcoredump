@@ -157,9 +157,10 @@ func (s *service) run(ctx context.Context) {
 		s.logger.Debug("sending header")
 		err := json.NewEncoder(w).Encode(rcoredump.IndexRequest{
 			Date:              time.Unix(timestamp, 0),
-			Hostname:          hostname,
-			ExecutablePath:    executable,
 			ExecutableHash:    hash,
+			ExecutablePath:    executable,
+			ForwarderVersion:  Version,
+			Hostname:          hostname,
 			IncludeExecutable: sendExecutable,
 			Metadata:          s.metadata,
 		})
