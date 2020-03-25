@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "_rcoredump_ is meant to be a toolbox for aggregating, indexing, and searching core dumps. Think ELK for core dumps.",
   "dependencies": {
+    "dayjs": "^1.8.23",
     "normalize.css": "^8.0.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1"

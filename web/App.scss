@@ -1,6 +1,5 @@
 .Header {
-	h1 > span {
-		font-size: 1.4ex;
+	h1 > sup {
 		color: #999;
 	}
 }
@@ -48,6 +47,10 @@
 
 	.Toggle {
 		cursor: pointer;
+
+		&.active {
+			transform: rotate(90deg);
+		}
 	}
 
 	.Detail {

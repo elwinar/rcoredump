@@ -1,5 +1,9 @@
 import React from 'react';
 import styles from './App.scss';
+import dayjs from 'dayjs';
+
+var utc = require('dayjs/plugin/utc');
+dayjs.extend(utc);
 
 function encodeQuery(q) {
 	return btoa(JSON.stringify(q));
@@ -57,7 +61,7 @@ function App() {
 	return (
 		<React.Fragment>
 			<header className={styles.Header}>
-				<h1>RCoredump <span>{Version}</span></h1>
+				<h1>RCoredump <sup>{Version}</sup></h1>
 			</header>
 			<Searchbar setQuery={setQuery} query={query} />
 			<Table entries={entries} />
@@ -150,9 +154,9 @@ function Table(props) {
 					{entries.map(x => {
 						return (
 							<React.Fragment key={x.uid}>
-								<tr>
-									<td className={styles.Toggle} onClick={() => toggle(x.uid)}>{selected == x.uid ? '▼' : '▶'}</td>
-									<td>{x.date}</td>
+								<tr onClick={() => toggle(x.uid)}>
+									<td className={styles.Toggle+' '+(selected == x.uid ? styles.active : '')}>▶</td>
+									<td>{dayjs(x.date).local().format('YYYY-MM-DD HH:mm:ss')}</td>
 									<td>{x.hostname}</td>
 									<td>{x.executable_path.split('/').pop()}</td>
 									<td>{x.lang}</td>
@@ -178,7 +182,7 @@ function Core(props) {
 		<React.Fragment>
 			<dl className={styles.Description}>
 				<dt>uid</dt><dd><a href={`${document.config.baseURL}/cores/${core.uid}`}>{core.uid} ({formatSize(core.size, true)})</a></dd>
-				<dt>date</dt><dd>{core.date}</dd>
+				<dt>date</dt><dd>{dayjs(core.date).local().format('YYYY-MM-DD HH:mm:ss')}</dd>
 				<dt>hostname</dt><dd>{core.hostname}</dd>
 				<dt>executable</dt><dd><a href={`${document.config.baseURL}/executables/${core.executable_hash}`}>{core.executable_path} ({formatSize(core.executable_size, true)})</a></dd>
 				{core.lang !== "" ? <><dt>lang</dt><dd>{core.lang}</dd></> : null}

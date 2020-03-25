@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ForwarderVersion and IndexerVersion in the indexed fields
 ### Changed
 - The `c.analyzer` and `go.analyzer` options now take the gdb or delve commands to execute on the coredump, instead of full shell commands (#27)
+- Design & Interface overhaul:
+	- Better table readability and usage by changing padding and making the whole row clickable
 ### Fixed
 - Case of the fields for sorting is back to lowercase (#26)
 
