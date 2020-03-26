@@ -17,8 +17,6 @@ const defaultQuery = {q: '*', sort: 'date', order: 'desc', size: '50'};
 
 // Those variables are defined at compile-time by Parcel.
 const Version = process.env.VERSION;
-const BuiltAt = process.env.BUILT_AT;
-const Commit = process.env.COMMIT;
 
 function formatSize(bytes) {
 	const threshold = 1000;
