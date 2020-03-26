@@ -165,8 +165,8 @@ function Table(props) {
 					{entries.map(x => {
 						return (
 							<React.Fragment key={x.uid}>
-								<tr onClick={() => toggle(x.uid)}>
-									<td className={styles.Toggle+' '+(selected == x.uid ? styles.active : '')}>▶</td>
+								<tr onClick={() => toggle(x.uid)} active={selected == x.uid ? 'true' : undefined}>
+									<td>▶</td>
 									<td>{dayjs(x.date).local().format('YYYY-MM-DD HH:mm:ss')}</td>
 									<td>{x.hostname}</td>
 									<td>{x.executable_path.split('/').pop()}</td>
@@ -191,24 +191,21 @@ function Core(props) {
 
 	return (
 		<React.Fragment>
-			<dl className={styles.Description}>
-				<dt>uid</dt><dd><a href={`${document.config.baseURL}/cores/${core.uid}`}>{core.uid} ({formatSize(core.size, true)})</a></dd>
-				<dt>date</dt><dd>{dayjs(core.date).local().format('YYYY-MM-DD HH:mm:ss')}</dd>
-				<dt>hostname</dt><dd>{core.hostname}</dd>
-				<dt>executable</dt><dd><a href={`${document.config.baseURL}/executables/${core.executable_hash}`}>{core.executable_path} ({formatSize(core.executable_size, true)})</a></dd>
-				{core.lang !== "" ? <><dt>lang</dt><dd>{core.lang}</dd></> : null}
-			</dl>
-			<dl className={styles.Metadata}>
+			<h3>metadata</h3>
+			<dl>
+				<dt>core</dt><dd>{core.uid} ({formatSize(core.size, true)}, <a href={`${document.config.baseURL}/cores/${core.uid}`}>download</a>)</dd>
+				<dt>executable hash</dt><dd>{core.executable_hash} ({formatSize(core.executable_size, true)}, <a href={`${document.config.baseURL}/executables/${core.executable_hash}`}>download</a>)</dd>
+				<dt>executable path</dt><dd>{core.executable_path}</dd>
 				{Object.keys(core.metadata).map(x => {
 					return (
 						<React.Fragment key={x}>
-							<dt>{x}</dt>
+							<dt>metadata.{x}</dt>
 							<dd>{core.metadata[x]}</dd>
 						</React.Fragment>
 					);
 				})}
 			</dl>
-			<button onClick={() => analyze(core.uid)}>Analyze</button>
+			<h3>stack trace</h3>
 			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
 		</React.Fragment>
 	);

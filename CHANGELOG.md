@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Design & Interface overhaul:
 	- Better table readability and usage by changing padding and making the whole row clickable
 	- Rework the searchbar to remove useless options and optimize the sorting
+	- Reorganization of the detail view and table heading for better readability
 - The sort and sort order parameters are now separate options because it's simpler
 - Limit the sort options to date and hostname because the executable one isn't working as intended anymore
 ### Fixed
