@@ -13,7 +13,7 @@ function decodeQuery(q) {
 	return JSON.parse(atob(q));
 }
 
-const defaultQuery = {q: '*', sort: '-date', size: '20'};
+const defaultQuery = {q: '*', sort: 'date', order: 'desc', size: '50'};
 
 // Those variables are defined at compile-time by Parcel.
 const Version = process.env.VERSION;
@@ -72,11 +72,15 @@ function App() {
 function Searchbar(props) {
 	const {query, setQuery} = props;
 	const [state, setState] = React.useState(query);
-	const [advanced, setAdvanced] = React.useState('');
+	const [dirty, setDirty] = React.useState(false);
 
 	React.useEffect(function() {
 		setState(query);
 	}, [query]);
+
+	React.useEffect(function() {
+		setDirty(Object.keys(query).some(prop => state[prop] !== query[prop]));
+	}, [state]);
 
 	function change(ev) {
 		setState({
@@ -88,38 +92,45 @@ function Searchbar(props) {
 	function submit(ev) {
 		ev.preventDefault();
 		setQuery(state);
-	}
-
-	function toggle(ev) {
-		setAdvanced(advanced === ev.target.name ? '' : ev.target.name);
+		setDirty(false);
 	}
 
 	return (
 		<React.Fragment>
 			<form className={styles.Searchbar} onSubmit={submit}>
-				<fieldset>
-					<button type="button" name="size" dirty={state.size !== query.size ? 'true' : undefined } onClick={toggle}>size: {state.size}</button>
-					<button type="button" name="sort" dirty={state.sort !== query.sort ? 'true' : undefined } onClick={toggle}>sort: {state.sort}</button>
-					<button type="submit" onClick={toggle}>Apply</button>
-				</fieldset>
-				<fieldset style={{display: advanced === 'size' ? 'block' : 'none' }}>
-					<p>Size: {['10', '20', '50'].map(field => {
-						return (<React.Fragment key={field}>
-							<input type="radio" name="size" id={field} value={field} checked={state.size === field} onChange={change} />
-							<label htmlFor={field}>{field}</label>
-						</React.Fragment>);
-					})}</p>
-				</fieldset>
-				<fieldset style={{display: advanced === 'sort' ? 'block' : 'none' }}>
-					<p>Sort: {['-date', 'date', 'hostname', '-hostname', 'executable', '-executable'].map(field => {
-						return (<React.Fragment key={field}>
-							<input type="radio" name="sort" id={field} value={field} checked={state.sort === field} onChange={change} />
-							<label htmlFor={field}>{field}</label>
-						</React.Fragment>);
-					})}</p>
-				</fieldset>
-				<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q !== query.q ? 'true' : undefined} />
-				<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
+				<div>
+					<fieldset>
+						{['date', 'hostname'].map(field => {
+							const isActive = state.sort === field ? 'true' : undefined;
+							const isDirty = state.sort === field && state.sort !== query.sort ? 'true' : undefined;
+							return (
+								<label className={styles.Radio} key={field} field="sort" active={isActive} dirty={isDirty}>
+									{field}
+									<input type="radio" name="sort" value={field} onChange={change} checked={state.sort === field} />
+								</label>
+							);
+						})}
+					</fieldset>
+					<fieldset>
+						{['asc', 'desc'].map(field => {
+							const isActive = state.order === field ? 'true' : undefined;
+							const isDirty = state.order === field && state.order !== query.order ? 'true' : undefined;
+							return (
+								<label className={styles.Radio} key={field} field="order" active={isActive} dirty={isDirty}>
+									{field}
+									<input type="radio" name="order" value={field} onChange={change} checked={state.order === field} />
+								</label>
+							);
+						})}
+					</fieldset>
+				</div>
+				<div>
+					<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q !== query.q ? 'true' : undefined} />
+					<button type="submit" disabled={!dirty}>Apply</button>
+				</div>
+				<div>
+					<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
+				</div>
 			</form>
 		</React.Fragment>
 	);

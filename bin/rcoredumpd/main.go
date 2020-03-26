@@ -380,7 +380,26 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 
 	sort := r.FormValue("sort")
 	if len(sort) == 0 {
-		sort = "-date"
+		sort = "date"
+	}
+	switch sort {
+	case "date", "hostname":
+		break
+	default:
+		writeError(w, http.StatusBadRequest, wrap(err, "invalid sort field"))
+		return
+	}
+
+	order := r.FormValue("order")
+	if len(order) == 0 {
+		sort = "desc"
+	}
+	switch order {
+	case "asc", "desc":
+		break
+	default:
+		writeError(w, http.StatusBadRequest, wrap(err, "invalid sort order"))
+		return
 	}
 
 	rawSize := r.FormValue("size")
@@ -393,7 +412,7 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 		return
 	}
 
-	res, err := s.index.Search(q, sort, size)
+	res, err := s.index.Search(q, sort, order, size)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

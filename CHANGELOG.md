@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `c.analyzer` and `go.analyzer` options now take the gdb or delve commands to execute on the coredump, instead of full shell commands (#27)
 - Design & Interface overhaul:
 	- Better table readability and usage by changing padding and making the whole row clickable
+	- Rework the searchbar to remove useless options and optimize the sorting
+- The sort and sort order parameters are now separate options because it's simpler
+- Limit the sort options to date and hostname because the executable one isn't working as intended anymore
 ### Fixed
 - Case of the fields for sorting is back to lowercase (#26)
 

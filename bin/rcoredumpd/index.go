@@ -15,7 +15,7 @@ type Index interface {
 	FindUnanalyzed() ([]string, error)
 	Index(Coredump) error
 	Lookup(string) (bool, error)
-	Search(string, string, int) ([]Coredump, error)
+	Search(string, string, string, int) ([]Coredump, error)
 }
 
 var (
@@ -145,10 +145,14 @@ func (i BleveIndex) Lookup(uid string) (exists bool, err error) {
 	return d != nil, nil
 }
 
-func (i BleveIndex) Search(q, sort string, size int) (cores []Coredump, err error) {
+func (i BleveIndex) Search(q, sort, order string, size int) (cores []Coredump, err error) {
 	req := bleve.NewSearchRequest(bleve.NewQueryStringQuery(q))
 	req.Fields = []string{"*"}
-	req.SortBy(strings.Split(sort, ","))
+
+	if order == "desc" {
+		sort = "-" + sort
+	}
+	req.SortBy([]string{sort})
 
 	res, err := i.index.Search(req)
 	if err != nil {
