@@ -2,9 +2,6 @@ import React from 'react';
 import styles from './App.scss';
 import dayjs from 'dayjs';
 
-var utc = require('dayjs/plugin/utc');
-dayjs.extend(utc);
-
 function encodeQuery(q) {
 	return btoa(JSON.stringify(q));
 }
@@ -27,6 +24,13 @@ function formatSize(bytes) {
 		u += 1;
 	}
 	return bytes.toFixed(1) + ' ' + units[u];
+}
+
+var utc = require('dayjs/plugin/utc');
+dayjs.extend(utc);
+
+function formatDate(date) {
+	return dayjs(date).local().format('YYYY-MM-DD HH:mm:ss');
 }
 
 function App() {
@@ -124,7 +128,7 @@ function Searchbar(props) {
 				</div>
 				<div>
 					<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q !== query.q ? 'true' : undefined} />
-					<button type="submit" disabled={!dirty}>Apply</button>
+					<button type="submit" disabled={!dirty}>apply</button>
 				</div>
 				<div>
 					<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
@@ -165,7 +169,7 @@ function Table(props) {
 							<React.Fragment key={x.uid}>
 								<tr onClick={() => toggle(x.uid)} active={selected == x.uid ? 'true' : undefined}>
 									<td>▶</td>
-									<td>{dayjs(x.date).local().format('YYYY-MM-DD HH:mm:ss')}</td>
+									<td>{formatDate(x.date)}</td>
 									<td>{x.hostname}</td>
 									<td>{x.executable_path.split('/').pop()}</td>
 									<td>{x.lang}</td>
@@ -189,11 +193,18 @@ function Core(props) {
 
 	return (
 		<React.Fragment>
-			<h3>metadata</h3>
+			<ul>
+				<li><a class={styles.Button} href={`${document.config.baseURL}/cores/${core.uid}`}>download core ({formatSize(core.size, true)})</a></li>
+				<li><a class={styles.Button} href={`${document.config.baseURL}/executables/${core.executable_hash}`}>download executable ({formatSize(core.executable_size, true)})</a></li>
+			</ul>
+			<h3>executable</h3>
 			<dl>
-				<dt>core</dt><dd>{core.uid} ({formatSize(core.size, true)}, <a href={`${document.config.baseURL}/cores/${core.uid}`}>download</a>)</dd>
-				<dt>executable hash</dt><dd>{core.executable_hash} ({formatSize(core.executable_size, true)}, <a href={`${document.config.baseURL}/executables/${core.executable_hash}`}>download</a>)</dd>
-				<dt>executable path</dt><dd>{core.executable_path}</dd>
+				<dt>executable_hash</dt><dd>{core.executable_hash}</dd>
+				<dt>executable_path</dt><dd>{core.executable_path}</dd>
+			</dl>
+			<h3>coredump</h3>
+			<dl>
+				<dt>uid</dt><dd>{core.uid}</dd>
 				{Object.keys(core.metadata).map(x => {
 					return (
 						<React.Fragment key={x}>
@@ -204,6 +215,9 @@ function Core(props) {
 				})}
 			</dl>
 			<h3>stack trace</h3>
+			<dl>
+				<dt>analyzed_at</dt><dd>{formatDate(core.analyzed_at || core.date)}</dd>
+			</dl>
 			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
 		</React.Fragment>
 	);

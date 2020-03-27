@@ -1,21 +1,36 @@
-$primary: #e56800;
-$primary-light: lighten($primary, 5%);
-$secondary: blue;
-$gray: #999;
-$gray-light: lighten($gray, 5%);
-$background: #f0efe7;
-$background-light: lighten($background, 4%);
-$background-lighter: lighten($background, 10%);
-$background-dark: darken($background, 20%);
+$primary: #E66700;
+$primary-light: #FF8119;
+$primary-dark: #994500;
+$secondary: #008399;
+$secondary-light: #00C4E6;
+$gray: #575753;
+$gray-light: #A3A39B;
+$gray-dark: #3D3D3A;
+$background: #F0EFE6;
+$background-light: #FCFBF2;
+$background-dark: #A3A39B;
 
 body {
 	background: $background;
 	font-family: sans-serif;
+	color: $gray-dark;
 }
 
 h1, h2, h3, h4, h5, h6 {
 	color: $primary;
-	font-weight: 300;
+	font-weight: 500;
+}
+
+h1 {
+	font-size: 2em !important;
+}
+
+h2 {
+	font-size: 1.8em !important;
+}
+
+h3 {
+	font-size: 1.4em !important;
 }
 
 a {
@@ -43,13 +58,14 @@ input, button {
 	}
 }
 
-input[type="text"], .Radio, button {
-	background: $background-lighter;
+input[type="text"], .Radio, button, .Button {
+	background: $background-light;
 	border-color: $background-dark;
 	border-radius: 0;
 	border-style: solid;
 	border-width: 1px;
 	padding: 0.5em;
+	text-decoration: none;
 }
 
 input[type="text"], .Radio {
@@ -126,7 +142,6 @@ input[type="text"], .Radio {
 
 	th {
 		font-weight: normal;
-		font-variant: small-caps;
 
 		&:nth-child(1) {
 			width: 2em;
@@ -160,6 +175,16 @@ input[type="text"], .Radio {
 }
 
 .Detail {
+	ul {
+		display: flex;
+		padding: 0;
+		list-style-type: none;
+
+		li + li {
+			margin-left: 0.25em;
+		}
+	}
+
 	h3 {
 		font-size: 1.2em;
 
@@ -170,10 +195,10 @@ input[type="text"], .Radio {
 
 	dl {
 		display: grid;
-		grid-template-columns: 1fr 10fr;
+		grid-template-columns: 1fr 3fr;
 
 		dt {
-			font-variant: small-caps;
+			color: $gray;
 		}
 
 		dt, dd {
