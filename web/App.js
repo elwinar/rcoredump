@@ -197,12 +197,12 @@ function Core(props) {
 				<li><a class={styles.Button} href={`${document.config.baseURL}/cores/${core.uid}`}>download core ({formatSize(core.size, true)})</a></li>
 				<li><a class={styles.Button} href={`${document.config.baseURL}/executables/${core.executable_hash}`}>download executable ({formatSize(core.executable_size, true)})</a></li>
 			</ul>
-			<h3>executable</h3>
+			<h2>executable</h2>
 			<dl>
 				<dt>executable_hash</dt><dd>{core.executable_hash}</dd>
 				<dt>executable_path</dt><dd>{core.executable_path}</dd>
 			</dl>
-			<h3>coredump</h3>
+			<h2>coredump</h2>
 			<dl>
 				<dt>uid</dt><dd>{core.uid}</dd>
 				{Object.keys(core.metadata).map(x => {
@@ -214,7 +214,7 @@ function Core(props) {
 					);
 				})}
 			</dl>
-			<h3>stack trace</h3>
+			<h2>stack trace</h2>
 			<dl>
 				<dt>analyzed_at</dt><dd>{formatDate(core.analyzed_at)}</dd>
 			</dl>

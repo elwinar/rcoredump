@@ -16,21 +16,17 @@ body {
 	color: $gray-dark;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1, h2 {
 	color: $primary;
 	font-weight: 500;
 }
 
 h1 {
-	font-size: 2em !important;
+	font-size: 2em;
 }
 
 h2 {
-	font-size: 1.8em !important;
-}
-
-h3 {
-	font-size: 1.4em !important;
+	font-size: 1.4em;
 }
 
 a {
@@ -180,22 +176,23 @@ input[type="text"], .Radio {
 		padding: 0;
 		list-style-type: none;
 
+		li {
+			padding: 0.5em 0;
+		}
+
 		li + li {
 			margin-left: 0.25em;
 		}
 	}
 
-	h3 {
-		font-size: 1.2em;
-
-		&:first-child {
-			margin-top: 0.5em;
-		}
+	h2 {
+		margin-bottom: 0;
 	}
 
 	dl {
 		display: grid;
 		grid-template-columns: 1fr 3fr;
+		margin-top: 0.5em;
 
 		dt {
 			color: $gray;
