@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/elwinar/rcoredump"
 	"github.com/inconshreveable/log15"
@@ -59,27 +60,6 @@ func (p *analyzeProcess) cleanup() {
 	if p.file != nil {
 		p.file.Close()
 	}
-}
-
-// computeSizes retrieve the size of both the executable and the core file.
-func (p *analyzeProcess) computeSizes() {
-	if p.err != nil {
-		return
-	}
-
-	cinfo, err := os.Stat(p.file.Name())
-	if err != nil {
-		p.err = wrap(err, `sizing core file`)
-		return
-	}
-	p.core.Size = cinfo.Size()
-
-	einfo, err := os.Stat(p.executable.Name())
-	if err != nil {
-		p.err = wrap(err, `sizing executable file`)
-		return
-	}
-	p.core.ExecutableSize = einfo.Size()
 }
 
 // detectLanguage looks at an executable file's sections to guess which
@@ -149,6 +129,7 @@ func (p *analyzeProcess) indexResults() {
 	}
 
 	p.core.Analyzed = true
+	p.core.AnalyzedAt = time.Now()
 	p.log.Debug("indexing analysis result")
 	err := p.index.Index(p.core)
 	if err != nil {

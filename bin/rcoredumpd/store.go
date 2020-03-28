@@ -9,9 +9,9 @@ import (
 
 type Store interface {
 	Core(uid string) (*os.File, error)
-	StoreCore(uid string, src io.Reader) error
+	StoreCore(uid string, src io.Reader) (int64, error)
 	Executable(hash string) (*os.File, error)
-	StoreExecutable(hash string, src io.Reader) error
+	StoreExecutable(hash string, src io.Reader) (int64, error)
 	ExecutableExists(hash string) (bool, error)
 }
 
@@ -47,38 +47,38 @@ func (s FileStore) Core(uid string) (*os.File, error) {
 	return os.Open(filepath.Join(s.root, "cores", uid))
 }
 
-func (s FileStore) StoreCore(uid string, src io.Reader) error {
+func (s FileStore) StoreCore(uid string, src io.Reader) (int64, error) {
 	f, err := os.Create(filepath.Join(s.root, "cores", uid))
 	if err != nil {
-		return wrap(err, "creating core file")
+		return 0, wrap(err, "creating core file")
 	}
 	defer f.Close()
 
-	_, err = io.Copy(f, src)
+	written, err := io.Copy(f, src)
 	if err != nil {
-		return wrap(err, "reading core")
+		return 0, wrap(err, "reading core")
 	}
 
-	return nil
+	return written, nil
 }
 
 func (s FileStore) Executable(hash string) (*os.File, error) {
 	return os.Open(filepath.Join(s.root, "executables", hash))
 }
 
-func (s FileStore) StoreExecutable(hash string, src io.Reader) error {
+func (s FileStore) StoreExecutable(hash string, src io.Reader) (int64, error) {
 	f, err := os.Create(filepath.Join(s.root, "executables", hash))
 	if err != nil {
-		return wrap(err, "creating executable file")
+		return 0, wrap(err, "creating executable file")
 	}
 	defer f.Close()
 
-	_, err = io.Copy(f, src)
+	written, err := io.Copy(f, src)
 	if err != nil {
-		return wrap(err, "reading executable")
+		return 0, wrap(err, "reading executable")
 	}
 
-	return nil
+	return written, nil
 }
 
 func (s FileStore) ExecutableExists(hash string) (exists bool, err error) {

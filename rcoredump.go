@@ -7,7 +7,7 @@ import (
 // IndexRequest is the struct expected by the index endpoint.
 type IndexRequest struct {
 	// Date the core dump was generated.
-	Date time.Time `json:"date"`
+	DumpedAt time.Time `json:"dumped_at"`
 	// Hostname of the origin host.
 	Hostname string `json:"hostname"`
 	// Does the request body include the executable?
@@ -24,19 +24,24 @@ type IndexRequest struct {
 
 // Coredump as indexed by the server.
 type Coredump struct {
-	Analyzed         bool              `json:"analyzed"`
-	Date             time.Time         `json:"date"`
+	// Those fields are filled by indexing.
+	DumpedAt         time.Time         `json:"dumped_at"`
+	Executable       string            `json:"executable"`
 	ExecutableHash   string            `json:"executable_hash"`
 	ExecutablePath   string            `json:"executable_path"`
 	ExecutableSize   int64             `json:"executable_size"`
 	ForwarderVersion string            `json:"forwarder_version"`
 	Hostname         string            `json:"hostname"`
 	IndexerVersion   string            `json:"indexer_version"`
-	Lang             string            `json:"lang"`
 	Metadata         map[string]string `json:"metadata"`
 	Size             int64             `json:"size"`
-	Trace            string            `json:"trace"`
 	UID              string            `json:"uid"`
+
+	// Those fields are filled by analysis.
+	Analyzed   bool      `json:"analyzed"`
+	AnalyzedAt time.Time `json:"analyzed_at"`
+	Lang       string    `json:"lang"`
+	Trace      string    `json:"trace"`
 }
 
 // Error type for API return values.

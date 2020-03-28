@@ -10,7 +10,7 @@ function decodeQuery(q) {
 	return JSON.parse(atob(q));
 }
 
-const defaultQuery = {q: '*', sort: 'date', order: 'desc', size: '50'};
+const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '50'};
 
 // Those variables are defined at compile-time by Parcel.
 const Version = process.env.VERSION;
@@ -102,7 +102,7 @@ function Searchbar(props) {
 			<form className={styles.Searchbar} onSubmit={submit}>
 				<div>
 					<fieldset>
-						{['date', 'hostname'].map(field => {
+						{['dumped_at', 'hostname'].map(field => {
 							const isActive = state.sort === field ? 'true' : undefined;
 							const isDirty = state.sort === field && state.sort !== query.sort ? 'true' : undefined;
 							return (
@@ -157,7 +157,7 @@ function Table(props) {
 				<thead>
 					<tr>
 						<th></th>
-						<th>date</th>
+						<th>dumped_at</th>
 						<th>hostname</th>
 						<th>executable</th>
 						<th>lang</th>
@@ -169,9 +169,9 @@ function Table(props) {
 							<React.Fragment key={x.uid}>
 								<tr onClick={() => toggle(x.uid)} active={selected == x.uid ? 'true' : undefined}>
 									<td>▶</td>
-									<td>{formatDate(x.date)}</td>
+									<td>{formatDate(x.dumped_at)}</td>
 									<td>{x.hostname}</td>
-									<td>{x.executable_path.split('/').pop()}</td>
+									<td>{x.executable}</td>
 									<td>{x.lang}</td>
 								</tr>
 								{selected == x.uid && <tr className={styles.Detail}><td colSpan="5"><Core core={x} /></td></tr>}
@@ -216,7 +216,7 @@ function Core(props) {
 			</dl>
 			<h3>stack trace</h3>
 			<dl>
-				<dt>analyzed_at</dt><dd>{formatDate(core.analyzed_at || core.date)}</dd>
+				<dt>analyzed_at</dt><dd>{formatDate(core.analyzed_at)}</dd>
 			</dl>
 			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
 		</React.Fragment>

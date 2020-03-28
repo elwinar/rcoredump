@@ -7,8 +7,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 
-	"github.com/elwinar/rcoredump"
 	"github.com/inconshreveable/log15"
 	"github.com/rs/xid"
 )
@@ -19,17 +20,22 @@ type indexRequest struct {
 	index Index
 	store Store
 
-	err error
-	uid string
-	rcoredump.IndexRequest
-	body   *bufio.Reader
-	reader *gzip.Reader
+	err      error
+	uid      string
+	body     *bufio.Reader
+	reader   *gzip.Reader
+	req      IndexRequest
+	coredump Coredump
 }
 
 func (r *indexRequest) init() {
 	r.uid = xid.New().String()
 	r.log = r.log.New("uid", r.uid)
 	r.body = bufio.NewReader(r.r.Body)
+	r.coredump = Coredump{
+		IndexerVersion: Version,
+		UID:            r.uid,
+	}
 }
 
 func (r *indexRequest) close() {
@@ -65,11 +71,19 @@ func (r *indexRequest) read() {
 		return
 	}
 
-	err = json.NewDecoder(r.reader).Decode(&r.IndexRequest)
+	err = json.NewDecoder(r.reader).Decode(&r.req)
 	if err != nil {
 		r.err = wrap(err, "parsing header")
 		return
 	}
+
+	r.coredump.DumpedAt = r.req.DumpedAt
+	r.coredump.Executable = filepath.Base(r.req.ExecutablePath)
+	r.coredump.ExecutableHash = r.req.ExecutableHash
+	r.coredump.ExecutablePath = r.req.ExecutablePath
+	r.coredump.ForwarderVersion = r.req.ForwarderVersion
+	r.coredump.Hostname = r.req.Hostname
+	r.coredump.Metadata = r.req.Metadata
 }
 
 func (r *indexRequest) readCore() {
@@ -83,7 +97,7 @@ func (r *indexRequest) readCore() {
 		return
 	}
 
-	r.err = r.store.StoreCore(r.uid, r.reader)
+	r.coredump.Size, r.err = r.store.StoreCore(r.uid, r.reader)
 }
 
 func (r *indexRequest) readExecutable() {
@@ -97,7 +111,30 @@ func (r *indexRequest) readExecutable() {
 		return
 	}
 
-	r.err = r.store.StoreExecutable(r.ExecutableHash, r.reader)
+	r.coredump.ExecutableSize, r.err = r.store.StoreExecutable(r.req.ExecutableHash, r.reader)
+}
+
+// computeExecutableSize is used if the executable wasn't sent by the forwarder
+// because it already exists.
+func (r *indexRequest) computeExecutableSize() {
+	if r.err != nil {
+		return
+	}
+
+	// We open the real file, this also ensure the file is available.
+	executable, err := r.store.Executable(r.req.ExecutableHash)
+	if err != nil {
+		r.err = wrap(err, "opening executable file")
+		return
+	}
+	defer executable.Close()
+
+	info, err := os.Stat(executable.Name())
+	if err != nil {
+		r.err = wrap(err, "getting executable size")
+		return
+	}
+	r.coredump.ExecutableSize = info.Size()
 }
 
 func (r *indexRequest) indexCore() {
@@ -105,17 +142,7 @@ func (r *indexRequest) indexCore() {
 		return
 	}
 
-	err := r.index.Index(Coredump{
-		Analyzed:         false,
-		Date:             r.Date,
-		ExecutableHash:   r.ExecutableHash,
-		ExecutablePath:   r.ExecutablePath,
-		ForwarderVersion: r.ForwarderVersion,
-		Hostname:         r.Hostname,
-		IndexerVersion:   Version,
-		Metadata:         r.Metadata,
-		UID:              r.uid,
-	})
+	err := r.index.Index(r.coredump)
 	if err != nil {
 		r.err = wrap(err, "indexing core")
 		return

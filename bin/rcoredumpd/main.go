@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
 	"github.com/elwinar/rcoredump/conf"
 
+	"github.com/c2h5oh/datasize"
 	"github.com/inconshreveable/log15"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
@@ -65,18 +67,20 @@ type service struct {
 	syslog       bool
 	filelog      string
 	printVersion bool
+	sizeBuckets  string
 	indexType    string
 	storeType    string
 	goAnalyzer   string
 	cAnalyzer    string
 
 	// Dependencies
-	assets   http.FileSystem
-	index    Index
-	logger   log15.Logger
-	queue    chan string
-	received *prometheus.CounterVec
-	store    Store
+	assets        http.FileSystem
+	index         Index
+	logger        log15.Logger
+	queue         chan string
+	received      *prometheus.CounterVec
+	receivedSizes *prometheus.HistogramVec
+	store         Store
 }
 
 // configure read and validate the configuration of the service and populate
@@ -94,6 +98,7 @@ func (s *service) configure() {
 	fs.BoolVar(&s.syslog, "syslog", false, "output logs to syslog")
 	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into (\"-\" for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
+	fs.StringVar(&s.sizeBuckets, "size-buckets", "1MB,10MB,100MB,1GB,10GB", "buckets report the coredump sizes for")
 
 	// Interface options.
 	fs.StringVar(&s.indexType, "index-type", "bleve", "type of index to use (values: bleve)")
@@ -137,6 +142,23 @@ func (s *service) init() (err error) {
 		Help: "number of core dump received",
 	}, []string{"hostname", "executable"})
 	prometheus.MustRegister(s.received)
+
+	var buckets []float64
+	for _, raw := range strings.Split(s.sizeBuckets, ",") {
+		var b datasize.ByteSize
+		err := b.UnmarshalText([]byte(raw))
+		if err != nil {
+			return wrap(err, `invalid value for size-buckets option`)
+		}
+		buckets = append(buckets, b.MBytes())
+	}
+
+	s.receivedSizes = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "rcoredumpd_received_sizes_megabytes",
+		Help:    "sizes of the received core dumps",
+		Buckets: buckets,
+	}, []string{"hostname", "executable"})
+	prometheus.MustRegister(s.receivedSizes)
 
 	s.logger.Debug("retrieving embeded assets")
 	s.assets, err = fs.New()
@@ -300,8 +322,10 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 	req.init()
 	req.read()
 	req.readCore()
-	if req.IncludeExecutable {
+	if req.req.IncludeExecutable {
 		req.readExecutable()
+	} else {
+		req.computeExecutableSize()
 	}
 	req.indexCore()
 	req.close()
@@ -313,9 +337,14 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 	}
 
 	s.received.With(prometheus.Labels{
-		"hostname":   req.Hostname,
-		"executable": req.ExecutablePath,
+		"hostname":   req.coredump.Hostname,
+		"executable": req.coredump.Executable,
 	}).Inc()
+
+	s.receivedSizes.With(prometheus.Labels{
+		"hostname":   req.coredump.Hostname,
+		"executable": req.coredump.Executable,
+	}).Observe(datasize.ByteSize(req.coredump.Size).MBytes())
 
 	s.queue <- req.uid
 
@@ -357,7 +386,6 @@ func (s *service) analyze(uid string) {
 	}
 
 	p.init()
-	p.computeSizes()
 	p.detectLanguage()
 	p.extractStackTrace()
 	p.indexResults()
@@ -380,10 +408,10 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 
 	sort := r.FormValue("sort")
 	if len(sort) == 0 {
-		sort = "date"
+		sort = "dumped_at"
 	}
 	switch sort {
-	case "date", "hostname":
+	case "dumped_at", "hostname":
 		break
 	default:
 		writeError(w, http.StatusBadRequest, wrap(err, "invalid sort field"))
@@ -465,8 +493,11 @@ func (s *service) getExecutable(w http.ResponseWriter, r *http.Request, p httpro
 	io.Copy(w, f)
 }
 
-// Coredump is simply an alias of the lib type, for convenience.
-type Coredump = rcoredump.Coredump
+// Aliases of the shared types, for convenience.
+type (
+	Coredump     = rcoredump.Coredump
+	IndexRequest = rcoredump.IndexRequest
+)
 
 // write a payload and a status to the ResponseWriter.
 func write(w http.ResponseWriter, status int, payload interface{}) {
