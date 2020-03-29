@@ -58,7 +58,7 @@ monkey: ## Build the test crashers
 
 .PHONY: release
 release: ## Build the release files
-	mkdir $(release_dir)
+	mkdir -p $(release_dir)
 	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredumpd
 	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredump
 

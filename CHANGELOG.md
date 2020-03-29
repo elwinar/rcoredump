@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [v0.7.0](https://github.com/elwinar/rcoredump/releases/tag/v0.7.0) - 2020-03-29
 ### Added
 - /about endpoint with build information
 - Version of the webapp in the webapp's header
@@ -24,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compute the core and executable sizes during indexation instead of analysis
 - Rename Coredump.Date to Coredump.DumpedAt for consistency with Coredump.AnalyzedAt
 ### Fixed
-- Case of the fields for sorting is back to lowercase (#26)
+- Case of the fields for sorting is back to lowercase
 
 ## [v0.6.1](https://github.com/elwinar/rcoredump/releases/tag/v0.6.1) - 2020-03-23
 ### Internal
