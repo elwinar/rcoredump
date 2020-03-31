@@ -2,6 +2,19 @@ import React from 'react';
 import styles from './App.scss';
 import dayjs from 'dayjs';
 
+
+// Those variables are defined at compile-time by Parcel.
+const Version = process.env.VERSION;
+// Default query the user is redirected to if there is none.
+const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '250'};
+// Default result to use for initial values and in case of errors.
+const defaultResults = {results:[], total: 0};
+// Maximum number of pages displayed by the pagination.
+const maxPages = 5;
+// Page size for displaying the results.
+const pageSize = 25;
+
+
 // Encore a query as string.
 function encodeQuery(q) {
 	return btoa(JSON.stringify(q));
@@ -11,12 +24,6 @@ function encodeQuery(q) {
 function decodeQuery(q) {
 	return JSON.parse(atob(q));
 }
-
-// Default query the user is redirected to if there is none.
-const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '5'};
-
-// Those variables are defined at compile-time by Parcel.
-const Version = process.env.VERSION;
 
 // Return a human-readable version of a size in Bytes.
 function formatSize(bytes) {
@@ -45,6 +52,7 @@ function boolattr(b) {
 	return b ? 'true' : undefined;
 }
 
+
 function App() {
 	let q = new URLSearchParams(document.location.search.substring(1)).get('q');
 	if (q === null) {
@@ -54,7 +62,7 @@ function App() {
 	}
 
 	const [query, setQuery] = React.useState(q);
-	const [results, setResults] = React.useState([]);
+	const [results, setResults] = React.useState(defaultResults);
 
 	React.useEffect(function() {
 		let params = [];
@@ -64,7 +72,10 @@ function App() {
 		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
 			.then(res => res.json())
 			.then(function(res){
-				setResults(res || []);
+				if (res.results == null) {
+					res.results = [];
+				}
+				setResults(res || defaultResults);
 			});
 	}, [query]);
 
@@ -78,7 +89,7 @@ function App() {
 				<h1>RCoredump <sup>{Version}</sup></h1>
 			</header>
 			<Searchbar setQuery={setQuery} query={query} />
-			<Table results={results} />
+			<Table results={results.results} total={results.total} />
 		</React.Fragment>
 	);
 }
@@ -153,16 +164,41 @@ function Searchbar(props) {
 }
 
 function Table(props) {
-	const {results} = props;
+	const {results, total} = props;
 	const [selected, setSelected] = React.useState(null);
+	const [page, setPage] = React.useState(1);
+	const totalPages = Math.ceil(results.length/pageSize);
 
 	function toggle(uid) {
 		setSelected(selected == uid ? null : uid);
 		return false;
 	}
 
+	// Compute the page list by transforming a list of indices like [0, 1,
+	// 2, 3, 4] by shifting them from an offset computed from the current
+	// page (to avoid the "-1" page, and "max+1" page).
+	// Special case if there is less than maxPages pages to display, in
+	// which case we display them all.
+	var pages;
+	if (totalPages == 1) {
+		pages = [];
+	} else if (totalPages <= maxPages) {
+		pages = Array.from({length: totalPages}).map((_, index) => index + 1);
+	} else {
+		const spread = Math.floor(maxPages / 2);
+		const offset = Math.min(Math.max(page, spread+1), totalPages-spread);
+		pages = Array.from({length: maxPages}).map((_,index) => {
+			return offset - spread + index;
+		});
+	}
+
 	return (
 		<React.Fragment>
+			<ul className={styles.Pagination}>
+				{pages.map(p => {
+					return <li key={p} active={boolattr(p === page)} onClick={() => setPage(p)}>{p}</li>
+				})}
+			</ul>
 			<table className={styles.Table}>
 				<thead>
 					<tr>
@@ -174,7 +210,7 @@ function Table(props) {
 					</tr>
 				</thead>
 				<tbody>
-					{results.map(x => {
+					{results.slice((page-1)*pageSize, page*pageSize).map(x => {
 						return (
 							<React.Fragment key={x.uid}>
 								<tr onClick={() => toggle(x.uid)} active={boolattr(selected == x.uid)}>

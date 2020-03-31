@@ -22,6 +22,12 @@ type IndexRequest struct {
 	ForwarderVersion string `json:"forwarder_version"`
 }
 
+// SearchResult as returned by the server.
+type SearchResult struct {
+	Results []Coredump `json:"results"`
+	Total   uint64     `json:"total"`
+}
+
 // Coredump as indexed by the server.
 type Coredump struct {
 	// Those fields are filled by indexing.

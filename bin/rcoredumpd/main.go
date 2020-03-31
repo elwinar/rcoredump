@@ -432,7 +432,7 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 
 	rawSize := r.FormValue("size")
 	if len(rawSize) == 0 {
-		rawSize = "20"
+		rawSize = "50"
 	}
 	size, err := strconv.Atoi(rawSize)
 	if err != nil {
@@ -440,13 +440,23 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 		return
 	}
 
-	res, err := s.index.Search(q, sort, order, size)
+	rawFrom := r.FormValue("from")
+	if len(rawFrom) == 0 {
+		rawFrom = "0"
+	}
+	from, err := strconv.Atoi(rawFrom)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, wrap(err, "invalid from parameter"))
+		return
+	}
+
+	res, total, err := s.index.Search(q, sort, order, size, from)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	write(w, http.StatusOK, res)
+	write(w, http.StatusOK, SearchResult{Results: res, Total: total})
 }
 
 // getCore handles the requests to get the actual core dump file.
@@ -497,6 +507,7 @@ func (s *service) getExecutable(w http.ResponseWriter, r *http.Request, p httpro
 type (
 	Coredump     = rcoredump.Coredump
 	IndexRequest = rcoredump.IndexRequest
+	SearchResult = rcoredump.SearchResult
 )
 
 // write a payload and a status to the ResponseWriter.

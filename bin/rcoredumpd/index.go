@@ -15,7 +15,7 @@ type Index interface {
 	FindUnanalyzed() ([]string, error)
 	Index(Coredump) error
 	Lookup(string) (bool, error)
-	Search(string, string, string, int) ([]Coredump, error)
+	Search(string, string, string, int, int) ([]Coredump, uint64, error)
 }
 
 var (
@@ -145,9 +145,11 @@ func (i BleveIndex) Lookup(uid string) (exists bool, err error) {
 	return d != nil, nil
 }
 
-func (i BleveIndex) Search(q, sort, order string, size int) (cores []Coredump, err error) {
+func (i BleveIndex) Search(q, sort, order string, size, from int) (cores []Coredump, total uint64, err error) {
 	req := bleve.NewSearchRequest(bleve.NewQueryStringQuery(q))
 	req.Fields = []string{"*"}
+	req.From = from
+	req.Size = size
 
 	if order == "desc" {
 		sort = "-" + sort
@@ -156,7 +158,7 @@ func (i BleveIndex) Search(q, sort, order string, size int) (cores []Coredump, e
 
 	res, err := i.index.Search(req)
 	if err != nil {
-		return nil, wrap(err, `searching for coredumps`)
+		return nil, 0, wrap(err, `searching for coredumps`)
 	}
 
 	for _, d := range res.Hits {
@@ -164,7 +166,7 @@ func (i BleveIndex) Search(q, sort, order string, size int) (cores []Coredump, e
 
 		err := i.mapper.ToStruct(d.Fields, &c)
 		if err != nil {
-			return nil, wrap(err, `mapping to coredump`)
+			return nil, 0, wrap(err, `mapping to coredump`)
 		}
 
 		c.Metadata = make(map[string]string)
@@ -173,7 +175,7 @@ func (i BleveIndex) Search(q, sort, order string, size int) (cores []Coredump, e
 				continue
 			}
 			if _, ok := v.(string); !ok {
-				return nil, fmt.Errorf(`unexpected type for metadata value %s in core %s: %T`, k, c.UID, v)
+				return nil, 0, fmt.Errorf(`unexpected type for metadata value %s in core %s: %T`, k, c.UID, v)
 			}
 			c.Metadata[strings.TrimPrefix(k, "meta.")] = v.(string)
 		}
@@ -181,5 +183,5 @@ func (i BleveIndex) Search(q, sort, order string, size int) (cores []Coredump, e
 		cores = append(cores, c)
 	}
 
-	return cores, nil
+	return cores, res.Total, nil
 }
