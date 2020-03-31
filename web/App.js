@@ -2,19 +2,23 @@ import React from 'react';
 import styles from './App.scss';
 import dayjs from 'dayjs';
 
+// Encore a query as string.
 function encodeQuery(q) {
 	return btoa(JSON.stringify(q));
 }
 
+// Decode the string version of a query.
 function decodeQuery(q) {
 	return JSON.parse(atob(q));
 }
 
-const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '50'};
+// Default query the user is redirected to if there is none.
+const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '5'};
 
 // Those variables are defined at compile-time by Parcel.
 const Version = process.env.VERSION;
 
+// Return a human-readable version of a size in Bytes.
 function formatSize(bytes) {
 	const threshold = 1000;
 	const units = ['B', 'KB','MB','GB','TB','PB','EB','ZB','YB'];
@@ -26,11 +30,19 @@ function formatSize(bytes) {
 	return bytes.toFixed(1) + ' ' + units[u];
 }
 
+// dayjs is a lightweight momentjs-like library with mostly compatible API. I
+// just need the UTC plugin to be able to handle timezones.
 var utc = require('dayjs/plugin/utc');
 dayjs.extend(utc);
 
+// Format the date in a more friendly manner for display.
 function formatDate(date) {
 	return dayjs(date).local().format('YYYY-MM-DD HH:mm:ss');
+}
+
+// boolattr return the value for a non-HTML boolean attribute.
+function boolattr(b) {
+	return b ? 'true' : undefined;
 }
 
 function App() {
@@ -42,7 +54,7 @@ function App() {
 	}
 
 	const [query, setQuery] = React.useState(q);
-	const [entries, setEntries] = React.useState([]);
+	const [results, setResults] = React.useState([]);
 
 	React.useEffect(function() {
 		let params = [];
@@ -52,7 +64,7 @@ function App() {
 		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
 			.then(res => res.json())
 			.then(function(res){
-				setEntries(res || []);
+				setResults(res || []);
 			});
 	}, [query]);
 
@@ -66,7 +78,7 @@ function App() {
 				<h1>RCoredump <sup>{Version}</sup></h1>
 			</header>
 			<Searchbar setQuery={setQuery} query={query} />
-			<Table entries={entries} />
+			<Table results={results} />
 		</React.Fragment>
 	);
 }
@@ -103,31 +115,33 @@ function Searchbar(props) {
 				<div>
 					<fieldset>
 						{['dumped_at', 'hostname'].map(field => {
-							const isActive = state.sort === field ? 'true' : undefined;
-							const isDirty = state.sort === field && state.sort !== query.sort ? 'true' : undefined;
+							const isActive = boolattr(state.sort === field);
+							const isDirty = boolattr(state.sort === field && state.sort !== query.sort);
+							const isChecked = state.sort === field;
 							return (
 								<label className={styles.Radio} key={field} field="sort" active={isActive} dirty={isDirty}>
 									{field}
-									<input type="radio" name="sort" value={field} onChange={change} checked={state.sort === field} />
+									<input type="radio" name="sort" value={field} onChange={change} checked={isChecked} />
 								</label>
 							);
 						})}
 					</fieldset>
 					<fieldset>
 						{['asc', 'desc'].map(field => {
-							const isActive = state.order === field ? 'true' : undefined;
-							const isDirty = state.order === field && state.order !== query.order ? 'true' : undefined;
+							const isActive = boolattr(state.order === field);
+							const isDirty = boolattr(state.order === field && state.order !== query.order);
+							const isChecked = state.order === field;
 							return (
 								<label className={styles.Radio} key={field} field="order" active={isActive} dirty={isDirty}>
 									{field}
-									<input type="radio" name="order" value={field} onChange={change} checked={state.order === field} />
+									<input type="radio" name="order" value={field} onChange={change} checked={isChecked} />
 								</label>
 							);
 						})}
 					</fieldset>
 				</div>
 				<div>
-					<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={state.q !== query.q ? 'true' : undefined} />
+					<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={boolattr(state.q !== query.q)} />
 					<button type="submit" disabled={!dirty}>apply</button>
 				</div>
 				<div>
@@ -139,15 +153,11 @@ function Searchbar(props) {
 }
 
 function Table(props) {
-	const {entries} = props;
+	const {results} = props;
 	const [selected, setSelected] = React.useState(null);
 
 	function toggle(uid) {
-		if (selected == uid) {
-			setSelected(null);
-		} else {
-			setSelected(uid);
-		}
+		setSelected(selected == uid ? null : uid);
 		return false;
 	}
 
@@ -164,10 +174,10 @@ function Table(props) {
 					</tr>
 				</thead>
 				<tbody>
-					{entries.map(x => {
+					{results.map(x => {
 						return (
 							<React.Fragment key={x.uid}>
-								<tr onClick={() => toggle(x.uid)} active={selected == x.uid ? 'true' : undefined}>
+								<tr onClick={() => toggle(x.uid)} active={boolattr(selected == x.uid)}>
 									<td>▶</td>
 									<td>{formatDate(x.dumped_at)}</td>
 									<td>{x.hostname}</td>
