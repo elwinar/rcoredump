@@ -52,6 +52,18 @@ function boolattr(b) {
 	return b ? 'true' : undefined;
 }
 
+const quotes = [
+	":-)",
+	"Seems like good news.",
+	"Do not fear failure, but rather feat not trying.",
+];
+
+// inspirational returns a random quote from a list to display when there is
+// not result to display.
+function inspirational() {
+	return quotes[Math.floor(Math.random() * quotes.length)];
+}
+
 
 function App() {
 	let q = new URLSearchParams(document.location.search.substring(1)).get('q');
@@ -172,6 +184,12 @@ function Table(props) {
 	function toggle(uid) {
 		setSelected(selected == uid ? null : uid);
 		return false;
+	}
+
+	if (results.length == 0) {
+		return (
+			<p className={styles.NoResult}>No match for this query. {inspirational()}</p>
+		)
 	}
 
 	// Compute the page list by transforming a list of indices like [0, 1,

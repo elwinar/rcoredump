@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ###
 - Pagination in the API
 - Pagination of the results in the webapp
+- Add a special display for empty results
 ### Changed
 - Design improvements:
 	- Change the background color of hovered result rows
