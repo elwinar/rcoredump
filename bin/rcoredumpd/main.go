@@ -445,7 +445,7 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 
 	order := r.FormValue("order")
 	if len(order) == 0 {
-		sort = "desc"
+		order = "desc"
 	}
 	switch order {
 	case "asc", "desc":

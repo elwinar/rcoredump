@@ -23,6 +23,10 @@ function decodeQuery(q) {
 	return JSON.parse(atob(q));
 }
 
+function queryTo(s) {
+	return `/?q=${encodeQuery({q: s})}`
+}
+
 // Return a human-readable version of a size in Bytes.
 function formatSize(bytes) {
 	const threshold = 1000;
@@ -88,6 +92,27 @@ function App() {
 				setResults(res || defaultResults);
 			});
 	}, [query]);
+
+	// Intercept clicks on all internal links, and hijack them to allow
+	// changing the query instead of reloading the page. This allows for
+	// internal query links anywhere in the hierarchy while keeping the
+	// standard browser actions for links.
+	React.useEffect(function() {
+		window.addEventListener('click', function(event){
+			if (event.target.nodeName !== "A") {
+				return;
+			}
+
+			const url = new URL(event.target.href);
+			if (url.hostname !== window.location.hostname || url.pathname !== window.location.pathname) {
+				return;
+			}
+
+			event.preventDefault();
+			setQuery(decodeQuery(new URLSearchParams(url.search).get('q')));
+			return false;
+		});
+	}, []);
 
 	React.useEffect(function() {
 		window.addEventListener('popstate', function(event){
@@ -269,17 +294,17 @@ function Core(props) {
 	return (
 		<React.Fragment>
 			<ul>
-				<li><a class={styles.Button} href={`${document.config.baseURL}/cores/${core.uid}`}>download core ({formatSize(core.size, true)})</a></li>
-				<li><a class={styles.Button} href={`${document.config.baseURL}/executables/${core.executable_hash}`}>download executable ({formatSize(core.executable_size, true)})</a></li>
+				<li><a className={styles.Button} href={`${document.config.baseURL}/cores/${core.uid}`}>download core ({formatSize(core.size, true)})</a></li>
+				<li><a className={styles.Button} href={`${document.config.baseURL}/executables/${core.executable_hash}`}>download executable ({formatSize(core.executable_size, true)})</a></li>
 			</ul>
 			<h2>executable</h2>
 			<dl>
-				<dt>executable_hash</dt><dd>{core.executable_hash}</dd>
+				<dt>executable_hash</dt><dd><a href={queryTo(`executable_hash:"${core.executable_hash}"`)}>{core.executable_hash}</a></dd>
 				<dt>executable_path</dt><dd>{core.executable_path}</dd>
 			</dl>
 			<h2>coredump</h2>
 			<dl>
-				<dt>uid</dt><dd>{core.uid}</dd>
+				<dt>uid</dt><dd><a href={queryTo(`uid:"${core.uid}"`)}>{core.uid}</a></dd>
 				{Object.keys(core.metadata).map(x => {
 					return (
 						<React.Fragment key={x}>
