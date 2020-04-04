@@ -136,12 +136,13 @@ input[type="text"], .Radio {
 
 .Pagination {
 	display: flex;
-	padding: 0 0.5em;
-	height: 1em;
 	margin: 0;
+	padding: 0;
 	list-style-type: none;
 	
 	li {
+		display: inline-block;
+		padding: 0.5em;
 		cursor: pointer;
 	}
 
@@ -152,14 +153,10 @@ input[type="text"], .Radio {
 	li:hover {
 		color: $primary;
 	}
-
-	li + li {
-		margin-left: 0.25em;
-	}
 }
 
 .Table {
-	border-bottom: 1px solid $gray-dark;
+	border-bottom: 1px solid $gray-light;
 	border-collapse: collapse;
 	text-align: left;
 	width: 100%;
@@ -181,12 +178,12 @@ input[type="text"], .Radio {
 	}
 
 	th, td {
-		padding: 0.5em;
+		padding: 0.8em;
 	}
 
 	tbody {
 		tr {
-			border-top: 1px solid $gray-dark;
+			border-top: 1px solid $gray-light;
 
 			&[active] > td:first-child {
 				transform: rotate(90deg);

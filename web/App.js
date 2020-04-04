@@ -4,13 +4,13 @@ import dayjs from 'dayjs';
 
 
 // Default query the user is redirected to if there is none.
-const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '250'};
+const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '150'};
 // Default result to use for initial values and in case of errors.
 const defaultResults = {results:[], total: 0};
 // Maximum number of pages displayed by the pagination.
 const maxPages = 5;
 // Page size for displaying the results.
-const pageSize = 25;
+const pageSize = 15;
 
 
 // Encore a query as string.
