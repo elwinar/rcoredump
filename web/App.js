@@ -3,8 +3,6 @@ import styles from './App.scss';
 import dayjs from 'dayjs';
 
 
-// Those variables are defined at compile-time by Parcel.
-const Version = process.env.VERSION;
 // Default query the user is redirected to if there is none.
 const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '250'};
 // Default result to use for initial values and in case of errors.
@@ -98,7 +96,7 @@ function App() {
 	return (
 		<React.Fragment>
 			<header className={styles.Header}>
-				<h1>RCoredump <sup>{Version}</sup></h1>
+				<h1>RCoredump <sup>{document.Version}</sup></h1>
 			</header>
 			<Searchbar setQuery={setQuery} query={query} />
 			<Table results={results.results} total={results.total} />

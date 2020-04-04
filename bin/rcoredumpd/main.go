@@ -81,6 +81,7 @@ type service struct {
 	received      *prometheus.CounterVec
 	receivedSizes *prometheus.HistogramVec
 	store         Store
+	rootHTML      string
 }
 
 // configure read and validate the configuration of the service and populate
@@ -206,6 +207,25 @@ func (s *service) init() (err error) {
 
 	s.queue = make(chan string)
 
+	s.logger.Debug("building assets")
+	s.rootHTML = fmt.Sprintf(`
+		<!DOCTYPE html>
+		<html lang="en">
+			<head>
+				<meta charset="utf-8" />
+				<meta name="viewport" content="width=device-width, initial-scale=1" />
+				<title>RCoredump</title>
+				<link rel="stylesheet" href="/index.css">
+			</head>
+			<body>
+				<noscript>You need to enable JavaScript to run this app.</noscript>
+				<div id="root"></div>
+				<script>document.Version = '%s'; document.BuiltAt = '%s'; document.Commit = '%s';</script>
+				<script src="/index.js"></script>
+			</body>
+		</html>
+	`, Version, BuiltAt, Commit)
+
 	return nil
 }
 
@@ -249,6 +269,7 @@ func (s *service) run(ctx context.Context) {
 	s.logger.Debug("registering routes")
 	router := httprouter.New()
 	router.NotFound = http.FileServer(s.assets)
+	router.GET("/", s.root)
 	router.GET("/about", s.about)
 	router.POST("/cores", s.indexCore)
 	router.GET("/cores", s.searchCore)
@@ -297,6 +318,10 @@ func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.
 		"path", r.URL.Path,
 		"status", res.Status(),
 	)
+}
+
+func (s *service) root(rw http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	rw.Write([]byte(s.rootHTML))
 }
 
 func (s *service) about(rw http.ResponseWriter, r *http.Request, _ httprouter.Params) {

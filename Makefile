@@ -34,12 +34,12 @@ test: ## Run the package tests
 
 .PHONY: serve
 serve: ## Run the web interface
-	./node_modules/.bin/parcel -d $(build_dir)/web/ web/index_dev.html --host 0.0.0.0
+	./node_modules/.bin/parcel -d $(build_dir)/web/ web/index.html --host 0.0.0.0
 
 .PHONY: web
 web: ## Build the web interface
 	rm -rf $(build_dir)/web
-	VERSION=${tag} ./node_modules/.bin/parcel build -d $(build_dir)/web/ web/index.html
+	./node_modules/.bin/parcel build -d $(build_dir)/web/ web/index.js
 	rm -rf $(bin_dir)/rcoredumpd/internal
 	statik -f -src $(build_dir)/web -dest $(bin_dir)/rcoredumpd/ -p internal -m
 
