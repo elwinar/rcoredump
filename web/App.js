@@ -64,7 +64,7 @@ function inspirational() {
 
 
 function App() {
-	let q = new URLSearchParams(document.location.search.substring(1)).get('q');
+	let q = new URLSearchParams(window.location.search).get('q');
 	if (q === null) {
 		q = defaultQuery;
 	} else {
@@ -89,8 +89,21 @@ function App() {
 			});
 	}, [query]);
 
+	React.useEffect(function() {
+		window.addEventListener('popstate', function(event){
+			setQuery(decodeQuery(new URLSearchParams(window.location.search).get('q')));
+		});
+	}, []);
+
 	React.useEffect(function(){
-		history.pushState({}, '', `/?q=${encodeQuery(query)}`);
+		// Check if the parameter in the actual URL is the same as the
+		// current query, which means that the current change is
+		// probably a popstate event and don't need to be pushed again.
+		q = encodeQuery(query);
+		if (new URLSearchParams(window.location.search).get('q') === q) {
+			return;
+		}
+		history.pushState({}, '', `/?q=${q}`);
 	}, [query]);
 
 	return (
