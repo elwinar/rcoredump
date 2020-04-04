@@ -5,14 +5,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [v0.8.0](https://github.com/elwinar/rcoredump/releases/tag/v0.8.0) - 2020-04-04
 ###
 - Pagination in the API
 - Pagination of the results in the webapp
 - Add a special display for empty results
-- Permalink to coredump and executable searchs
+- Permalinks to coredump and executable searchs
 ### Changed
 - Design improvements:
-	- Change the background color of hovered result rows
+	- Hover color for result rows
+	- Lighter separators in table for better readability
 
 ## [v0.7.0](https://github.com/elwinar/rcoredump/releases/tag/v0.7.0) - 2020-03-29
 ### Added
