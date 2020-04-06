@@ -168,6 +168,10 @@ function Searchbar(props) {
 		setDirty(false);
 	}
 
+	function reset() {
+		setState(query);
+	}
+
 	return (
 		<React.Fragment>
 			<form className={styles.Searchbar} onSubmit={submit}>
@@ -202,6 +206,7 @@ function Searchbar(props) {
 				<div>
 					<input type="text" placeholder="coredump search query" name="q" value={state.q} onChange={change} dirty={boolattr(state.q !== query.q)} />
 					<button type="submit" disabled={!dirty}>apply</button>
+					<button onClick={reset} disabled={!dirty}>reset</button>
 				</div>
 				<div>
 					<p><a href="https://blevesearch.com/docs/Query-String-Query/" target="_blank">query string reference</a></p>
