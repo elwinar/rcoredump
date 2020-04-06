@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - Reset button on the searchbar
+### Changed
+- Use a lighter secondary color for better contrast with the border color
 
 ## [v0.8.0](https://github.com/elwinar/rcoredump/releases/tag/v0.8.0) - 2020-04-04
 ###
