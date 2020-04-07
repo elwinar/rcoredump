@@ -11,10 +11,9 @@ import (
 )
 
 type Index interface {
-	Find(string) (Coredump, error)
-	FindUnanalyzed() ([]string, error)
 	Index(Coredump) error
-	Lookup(string) (bool, error)
+	Find(string) (Coredump, error)
+	Delete(string) error
 	Search(string, string, string, int, int) ([]Coredump, uint64, error)
 }
 
@@ -34,6 +33,10 @@ type BleveIndex struct {
 	// isn't possible by default.
 	mapper *structmapper.Mapper
 }
+
+// compile-time check that the BleveIndex actually implements the Index
+// interface.
+var _ Index = new(BleveIndex)
 
 func NewBleveIndex(path string) (Index, error) {
 	_, err := os.Stat(path)
@@ -62,6 +65,19 @@ func NewBleveIndex(path string) (Index, error) {
 		index:  index,
 		mapper: mapper,
 	}, nil
+}
+
+func (i BleveIndex) Index(c Coredump) error {
+	m, err := i.mapper.ToMap(c)
+	if err != nil {
+		return wrap(err, `mapping Coredump`)
+	}
+
+	for k, v := range c.Metadata {
+		m[fmt.Sprintf("meta.%s", k)] = v
+	}
+
+	return i.index.Index(c.UID, m)
 }
 
 func (i BleveIndex) Find(uid string) (c Coredump, err error) {
@@ -96,53 +112,8 @@ func (i BleveIndex) Find(uid string) (c Coredump, err error) {
 	return c, nil
 }
 
-func (i BleveIndex) FindUnanalyzed() ([]string, error) {
-	query := bleve.NewBoolFieldQuery(false)
-	query.SetField("analyzed")
-
-	req := bleve.NewSearchRequest(query)
-	req.Fields = []string{"uid"}
-
-	res, err := i.index.Search(req)
-	if err != nil {
-		return nil, wrap(err, `searching for unanalyzed coredumps`)
-	}
-
-	if len(res.Hits) == 0 {
-		return nil, nil
-	}
-
-	var uids []string
-	for _, d := range res.Hits {
-		uid, ok := d.Fields["uid"].(string)
-		if !ok {
-			return nil, fmt.Errorf(`invalid uid type %T`, d.Fields["uid"])
-		}
-		uids = append(uids, uid)
-	}
-	return uids, nil
-}
-
-func (i BleveIndex) Index(c Coredump) error {
-	m, err := i.mapper.ToMap(c)
-	if err != nil {
-		return wrap(err, `mapping Coredump`)
-	}
-
-	for k, v := range c.Metadata {
-		m[fmt.Sprintf("meta.%s", k)] = v
-	}
-
-	return i.index.Index(c.UID, m)
-}
-
-func (i BleveIndex) Lookup(uid string) (exists bool, err error) {
-	d, err := i.index.Document(uid)
-	if err != nil {
-		return false, wrap(err, `looking for coredump`)
-	}
-
-	return d != nil, nil
+func (i BleveIndex) Delete(uid string) error {
+	return i.index.Delete(uid)
 }
 
 func (i BleveIndex) Search(q, sort, order string, size, from int) (cores []Coredump, total uint64, err error) {

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - Reset button on the searchbar
+- Add a cleanup routine and endpoint
 ### Changed
 - Use a lighter secondary color for better contrast with the border color
 

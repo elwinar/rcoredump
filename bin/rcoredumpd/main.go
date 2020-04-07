@@ -62,22 +62,24 @@ func main() {
 
 type service struct {
 	// Configuration.
-	bind         string
-	dataDir      string
-	syslog       bool
-	filelog      string
-	printVersion bool
-	sizeBuckets  string
-	indexType    string
-	storeType    string
-	goAnalyzer   string
-	cAnalyzer    string
+	bind              string
+	dataDir           string
+	syslog            bool
+	filelog           string
+	printVersion      bool
+	sizeBuckets       string
+	retentionDuration time.Duration
+	indexType         string
+	storeType         string
+	goAnalyzer        string
+	cAnalyzer         string
 
 	// Dependencies
 	assets        http.FileSystem
 	index         Index
 	logger        log15.Logger
-	queue         chan string
+	analysisQueue chan Coredump
+	cleanupQueue  chan Coredump
 	received      *prometheus.CounterVec
 	receivedSizes *prometheus.HistogramVec
 	store         Store
@@ -100,6 +102,7 @@ func (s *service) configure() {
 	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into (\"-\" for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
 	fs.StringVar(&s.sizeBuckets, "size-buckets", "1MB,10MB,100MB,1GB,10GB", "buckets report the coredump sizes for")
+	fs.DurationVar(&s.retentionDuration, "retention-duration", 0, "duration to keep an indexed coredump (e.g: \"168h\")")
 
 	// Interface options.
 	fs.StringVar(&s.indexType, "index-type", "bleve", "type of index to use (values: bleve)")
@@ -205,7 +208,8 @@ func (s *service) init() (err error) {
 		return wrap(err, `initializing index`)
 	}
 
-	s.queue = make(chan string)
+	s.analysisQueue = make(chan Coredump)
+	s.cleanupQueue = make(chan Coredump)
 
 	s.logger.Debug("building assets")
 	s.rootHTML = fmt.Sprintf(`
@@ -237,34 +241,27 @@ func (s *service) run(ctx context.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for uid := range s.queue {
-			s.analyze(uid)
+		for core := range s.analysisQueue {
+			s.analyze(core)
 		}
 		s.logger.Debug("stopping analysis queue")
 	}()
+	go s.findUnanalyzed(ctx)
 
-	s.logger.Debug("looking for leftwover cores to analyze")
+	s.logger.Debug("starting cleaning queue")
+	wg.Add(1)
 	go func() {
-		uids, err := s.index.FindUnanalyzed()
-		if err != nil {
-			s.logger.Error("initializing analysis", "err", err)
-			return
+		defer wg.Done()
+		for core := range s.cleanupQueue {
+			s.cleanup(core)
 		}
-		if len(uids) == 0 {
-			return
-		}
-
-		s.logger.Debug("found leftover cores to analyze", "count", len(uids))
-	loop:
-		for _, uid := range uids {
-			select {
-			case <-ctx.Done():
-				break loop
-			case s.queue <- uid:
-			}
-		}
-		s.logger.Debug("done analyzing leftover cores")
+		s.logger.Debug("stopping cleaning queue")
 	}()
+	// Find cleanable cores in a separate routine, only if the retention
+	// duration is configured.
+	if s.retentionDuration != 0 {
+		go s.findCleanable(ctx)
+	}
 
 	s.logger.Debug("registering routes")
 	router := httprouter.New()
@@ -274,6 +271,7 @@ func (s *service) run(ctx context.Context) {
 	router.POST("/cores", s.indexCore)
 	router.GET("/cores", s.searchCore)
 	router.GET("/cores/:uid", s.getCore)
+	router.DELETE("/cores/:uid", s.deleteCore)
 	router.POST("/cores/:uid/_analyze", s.analyzeCore)
 	router.HEAD("/executables/:hash", s.lookupExecutable)
 	router.GET("/executables/:hash", s.getExecutable)
@@ -294,7 +292,8 @@ func (s *service) run(ctx context.Context) {
 	go func() {
 		<-ctx.Done()
 		ctx, _ := context.WithTimeout(ctx, 1*time.Minute)
-		close(s.queue)
+		close(s.analysisQueue)
+		close(s.cleanupQueue)
 		server.Shutdown(ctx)
 	}()
 	err := server.ListenAndServe()
@@ -318,6 +317,110 @@ func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.
 		"path", r.URL.Path,
 		"status", res.Status(),
 	)
+}
+
+// findUnanalyzed coredumps and feed them to the analyze queue.
+func (s *service) findUnanalyzed(ctx context.Context) {
+	for {
+		// Note: searching for boolean fields in BleveSearch is fucked
+		// up. See here:
+		// https://github.com/blevesearch/bleve/issues/626
+		cores, _, err := s.index.Search(`analyzed:F*`, "dumped_at", "asc", 100, 0)
+		if err != nil {
+			s.logger.Error("initializing analysis", "err", err)
+			return
+		}
+		if len(cores) == 0 {
+			return
+		}
+
+		s.logger.Debug("found leftover cores to analyze", "count", len(cores))
+		defer s.logger.Debug("done analyzing leftover cores")
+		for _, core := range cores {
+			select {
+			case <-ctx.Done():
+				return
+			case s.analysisQueue <- core:
+			}
+		}
+	}
+}
+
+// findCleanable coredumps and feed them to the cleanup queue.
+func (s *service) findCleanable(ctx context.Context) {
+	t := time.NewTimer(1 * time.Minute)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			for {
+				cores, _, err := s.index.Search(fmt.Sprintf(`dumped_at:<"%s"`, time.Now().Add(-s.retentionDuration).Format(time.RFC3339)), "dumped_at", "asc", 100, 0)
+				if err != nil {
+					s.logger.Error("finding cleanable cores", "err", err)
+					break
+				}
+				if len(cores) == 0 {
+					s.logger.Debug("no core to clean")
+					break
+				}
+
+				s.logger.Debug("found cleanable cores", "count", len(cores))
+				for _, core := range cores {
+					select {
+					case <-ctx.Done():
+						return
+					case s.cleanupQueue <- core:
+					}
+				}
+			}
+		}
+	}
+}
+
+// analyze do the actual analysis of a core dump: language detection, strack
+// trace extraction, etc.
+func (s *service) analyze(core Coredump) {
+	p := &analyzeProcess{
+		dataDir: s.dataDir,
+		index:   s.index,
+		log:     s.logger.New("uid", core.UID),
+		store:   s.store,
+		core:    core,
+	}
+
+	p.init()
+	p.detectLanguage()
+	p.extractStackTrace()
+	p.indexResults()
+	p.cleanup()
+
+	if p.err != nil {
+		s.logger.Error("analyzing", "core", core.UID, "err", p.err)
+		return
+	}
+}
+
+// cleanup do the actual cleanup of a core dump: removing the file, the indexed
+// document, and eventually the executable.
+func (s *service) cleanup(core Coredump) {
+	p := &cleanupProcess{
+		index: s.index,
+		log:   s.logger.New("uid", core.UID),
+		store: s.store,
+		core:  core,
+	}
+
+	p.cleanIndex()
+	p.cleanStore()
+	if p.canCleanExecutable() {
+		p.cleanExecutable()
+	}
+
+	if p.err != nil {
+		s.logger.Error("analyzing", "core", core.UID, "err", p.err)
+		return
+	}
 }
 
 func (s *service) root(rw http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -371,7 +474,7 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 		"executable": req.coredump.Executable,
 	}).Observe(datasize.ByteSize(req.coredump.Size).MBytes())
 
-	s.queue <- req.uid
+	s.analysisQueue <- req.coredump
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -382,43 +485,16 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	uid := p.ByName("uid")
 
-	found, err := s.index.Lookup(uid)
-	if err != nil {
+	c, err := s.index.Find(uid)
+	switch err {
+	case nil:
+		s.analysisQueue <- c
+		w.WriteHeader(http.StatusAccepted)
+	case ErrNotFound:
+		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
+	default:
 		s.logger.Error("analyzing", "uid", uid, "err", err)
 		writeError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	if !found {
-		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
-		return
-	}
-
-	s.queue <- uid
-
-	w.WriteHeader(http.StatusOK)
-}
-
-// analyze do the actual analysis of a core dump: language detection, strack
-// trace extraction, etc.
-func (s *service) analyze(uid string) {
-	p := &analyzeProcess{
-		dataDir: s.dataDir,
-		index:   s.index,
-		log:     s.logger.New("uid", uid),
-		store:   s.store,
-		uid:     uid,
-	}
-
-	p.init()
-	p.detectLanguage()
-	p.extractStackTrace()
-	p.indexResults()
-	p.cleanup()
-
-	if p.err != nil {
-		s.logger.Error("analyzing", "core", uid, "err", p.err)
-		return
 	}
 }
 
@@ -495,6 +571,24 @@ func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.P
 
 	w.WriteHeader(http.StatusOK)
 	io.Copy(w, f)
+}
+
+// deleteCore handle the request to remove a coredump.
+func (s *service) deleteCore(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	uid := p.ByName("uid")
+
+	c, err := s.index.Find(uid)
+	switch err {
+	case nil:
+		s.cleanupQueue <- c
+		w.WriteHeader(http.StatusOK)
+	case ErrNotFound:
+		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
+	default:
+		s.logger.Error("analyzing", "uid", uid, "err", err)
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
 }
 
 // lookupExecutable handles the requests to check if a executable matching the given

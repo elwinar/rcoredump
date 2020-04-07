@@ -87,6 +87,10 @@ Usage of rcoredumpd: rcoredumpd [options]
         delve command to run to generate the stack trace for Go coredumps (default "bt")
   -index-type string
         type of index to use (values: bleve) (default "bleve")
+  -retention-duration duration
+        hours to keep an indexed coredump (default 168h0m0s)
+  -size-buckets string
+        buckets report the coredump sizes for (default "1MB,10MB,100MB,1GB,10GB")
   -store-type string
         type of store to use (values: file) (default "file")
   -syslog
@@ -128,10 +132,9 @@ path. This is mostly used for development and to test an installation.
 
 ### Logging
 
-All logging is done on stdout using the _logfmt_ format. This output can be
-redirected easily enough using various utilities, like `logger` for syslog. For
-convenience, the forwarder also accept a `-syslog` flag to log using syslog, and
-a `-filelog` flag to log to a file.
+By default, all logging is done on stdout using the _logfmt_ format. For
+convenience, both softwares also accept a `-syslog` flag to log using syslog,
+and a `-filelog` flag to log to a file.
 
 ### Storage
 
@@ -139,6 +142,10 @@ Right now, the indexer stores every core dump and binary on disk. As both of
 them can be quite large, it is recommended to closely monitor the size of the
 data directory (set  by the server's `-dir` flag), and the free space on the
 disk.
+
+If non-zero, the `-retention-duration` flag of the server can be used to
+automatically remove coredumps older than the value, eventually removing the
+executable if it is not linked to another coredump.
 
 ## Need Help?
 

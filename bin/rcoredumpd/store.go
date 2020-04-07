@@ -10,8 +10,10 @@ import (
 type Store interface {
 	Core(uid string) (*os.File, error)
 	StoreCore(uid string, src io.Reader) (int64, error)
+	DeleteCore(uid string) error
 	Executable(hash string) (*os.File, error)
 	StoreExecutable(hash string, src io.Reader) (int64, error)
+	DeleteExecutable(hash string) error
 	ExecutableExists(hash string) (bool, error)
 }
 
@@ -62,6 +64,10 @@ func (s FileStore) StoreCore(uid string, src io.Reader) (int64, error) {
 	return written, nil
 }
 
+func (s FileStore) DeleteCore(uid string) error {
+	return os.Remove(filepath.Join(s.root, "cores", uid))
+}
+
 func (s FileStore) Executable(hash string) (*os.File, error) {
 	return os.Open(filepath.Join(s.root, "executables", hash))
 }
@@ -79,6 +85,10 @@ func (s FileStore) StoreExecutable(hash string, src io.Reader) (int64, error) {
 	}
 
 	return written, nil
+}
+
+func (s FileStore) DeleteExecutable(hash string) error {
+	return os.Remove(filepath.Join(s.root, "executables", hash))
 }
 
 func (s FileStore) ExecutableExists(hash string) (exists bool, err error) {

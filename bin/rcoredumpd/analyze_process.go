@@ -19,9 +19,8 @@ type analyzeProcess struct {
 	index     Index
 	log       log15.Logger
 	store     Store
-	uid       string
+	core      Coredump
 
-	core       Coredump
 	err        error
 	file       *os.File
 	executable *os.File
@@ -34,19 +33,13 @@ func (p *analyzeProcess) init() {
 	}
 
 	var err error
-	p.core, err = p.index.Find(p.uid)
-	if err != nil {
-		p.err = wrap(err, "finding indexed core")
-		return
-	}
-
 	p.executable, err = p.store.Executable(p.core.ExecutableHash)
 	if err != nil {
 		p.err = wrap(err, `opening core file`)
 		return
 	}
 
-	p.file, err = p.store.Core(p.uid)
+	p.file, err = p.store.Core(p.core.UID)
 	if err != nil {
 		p.err = wrap(err, `opening executable file`)
 	}
