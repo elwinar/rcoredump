@@ -515,7 +515,7 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 	case "dumped_at", "hostname":
 		break
 	default:
-		writeError(w, http.StatusBadRequest, wrap(err, "invalid sort field"))
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid sort field '%s'", sort))
 		return
 	}
 
@@ -527,7 +527,7 @@ func (s *service) searchCore(w http.ResponseWriter, r *http.Request, _ httproute
 	case "asc", "desc":
 		break
 	default:
-		writeError(w, http.StatusBadRequest, wrap(err, "invalid sort order"))
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid sort order '%s'", order))
 		return
 	}
 

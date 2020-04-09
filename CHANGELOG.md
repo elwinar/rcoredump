@@ -8,8 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Reset button on the searchbar
 - Add a cleanup routine and endpoint
+- Display an error if the API fails
 ### Changed
 - Use a lighter secondary color for better contrast with the border color
+### Fixed
+- Correctly report query error in the API
 
 ## [v0.8.0](https://github.com/elwinar/rcoredump/releases/tag/v0.8.0) - 2020-04-04
 ###
