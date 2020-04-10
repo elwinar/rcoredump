@@ -3,16 +3,6 @@ import styles from './App.scss';
 import dayjs from 'dayjs';
 
 
-// Default query the user is redirected to if there is none.
-const defaultQuery = {q: '*', sort: 'dumped_at', order: 'desc', size: '150'};
-// Default result to use for initial values and in case of errors.
-const defaultResults = {results:[], total: 0};
-// Maximum number of pages displayed by the pagination.
-const maxPages = 5;
-// Page size for displaying the results.
-const pageSize = 15;
-
-
 // Encore a query as string.
 function encodeQuery(q) {
 	return btoa(JSON.stringify(q));
@@ -23,6 +13,7 @@ function decodeQuery(q) {
 	return JSON.parse(atob(q));
 }
 
+// Generate the URL for a query string s.
 function queryTo(s) {
 	return `/?q=${encodeQuery({q: s})}`
 }
@@ -54,42 +45,38 @@ function boolattr(b) {
 	return b ? 'true' : undefined;
 }
 
-const quotes = [
-	":-)",
-	"Seems like good news.",
-	"Do not fear failure, but rather feat not trying.",
-];
 
-// inspirational returns a random quote from a list to display when there is
-// not result to display.
-function inspirational() {
-	return quotes[Math.floor(Math.random() * quotes.length)];
-}
+export default function App() {
+	// query and results are the primary states of the whole app. Initial
+	// value of the query is especially important as the query will be
+	// runned immediately during the first render. We use a lazy load to
+	// avoid doing the job on every render.
+	const [query, setQuery] = React.useState(function() {
+		const raw = new URLSearchParams(window.location.search).get('q');
+		if (raw === null) {
+			return {q: '*', sort: 'dumped_at', order: 'desc', size: '150'};
+		}
+		return decodeQuery(raw);
+	});
+	const [result, setResult] = React.useState({results: [], total: 0, error: null});
 
-
-function App() {
-	let q = new URLSearchParams(window.location.search).get('q');
-	if (q === null) {
-		q = defaultQuery;
-	} else {
-		q = decodeQuery(q);
-	}
-
-	const [query, setQuery] = React.useState(q);
-	const [results, setResults] = React.useState(defaultResults);
-
+	// Whenever the query change, we want to run the query and update the
+	// result. We don't check the return status yet, because in most
+	// actionable cases we have an error message in the payload.
 	React.useEffect(function() {
 		let params = [];
 		for (const name in query) {
 			params.push(encodeURIComponent(name) + '=' + encodeURIComponent(query[name]));
 		}
 		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
-			.then(res => res.json())
-			.then(function(res){
-				if (res.results == null) {
-					res.results = [];
-				}
-				setResults(res || defaultResults);
+			.then(function(res) {
+				return res.json();
+			})
+			.then(function(res) {
+				setResult(res);
+			})
+			.catch(function(e) {
+				setResult({error: e.message});
 			});
 	}, [query]);
 
@@ -98,7 +85,7 @@ function App() {
 	// internal query links anywhere in the hierarchy while keeping the
 	// standard browser actions for links.
 	React.useEffect(function() {
-		window.addEventListener('click', function(event){
+		window.addEventListener('click', function (event) {
 			if (event.target.nodeName !== "A") {
 				return;
 			}
@@ -114,47 +101,73 @@ function App() {
 		});
 	}, []);
 
+	// The popstate event notify of the user using the back button of his
+	// browser (or other similar event). We don't really need to cleanup
+	// because the App component should never be unmounted.
 	React.useEffect(function() {
-		window.addEventListener('popstate', function(event){
+		window.addEventListener('popstate', function (event) {
 			setQuery(decodeQuery(new URLSearchParams(window.location.search).get('q')));
 		});
 	}, []);
 
+	// When the query change, we want to update the URL value. We have to
+	// check for the current value despite the hook dependency on the query
+	// because the any history event already does this, and doing it again
+	// break the forward-history.
 	React.useEffect(function(){
-		// Check if the parameter in the actual URL is the same as the
-		// current query, which means that the current change is
-		// probably a popstate event and don't need to be pushed again.
-		q = encodeQuery(query);
+		const q = encodeQuery(query);
 		if (new URLSearchParams(window.location.search).get('q') === q) {
 			return;
 		}
 		history.pushState({}, '', `/?q=${q}`);
 	}, [query]);
 
+	// Finally, render the component itself. The header and searchbar are
+	// always displayed, and the table gives way for the fallback display
+	// in case of error.
 	return (
 		<React.Fragment>
 			<header className={styles.Header}>
 				<h1>RCoredump <sup>{document.Version}</sup></h1>
 			</header>
 			<Searchbar setQuery={setQuery} query={query} />
-			<Table results={results.results} total={results.total} />
+			{ result.error == null
+				? (
+					<Table results={result.results || []} total={result.total} />
+				)
+				: (
+					<React.Fragment>
+						<h2>Unexpected error</h2>
+						<p>{ result.error }</p>
+					</React.Fragment>
+				)
+			}
 		</React.Fragment>
 	);
 }
 
 function Searchbar(props) {
+	// query and state are respectively the initial and current value of
+	// the form. We use setQuery to warn the components above when the use
+	// wants to apply the local state to the app.
 	const {query, setQuery} = props;
 	const [state, setState] = React.useState(query);
-	const [dirty, setDirty] = React.useState(false);
 
+	// We want to update the current state when the query change. As the
+	// searchbar is never unmounted, this isn't done automatically.
 	React.useEffect(function() {
 		setState(query);
 	}, [query]);
 
+	// dirty is used to activate or not the apply and reset buttons when
+	// the state isn't equivalent to the initial query.
+	const [dirty, setDirty] = React.useState(false);
 	React.useEffect(function() {
 		setDirty(Object.keys(query).some(prop => state[prop] !== query[prop]));
 	}, [state]);
 
+	// change is used by form component when their value change to update
+	// the local state.
 	function change(ev) {
 		setState({
 			...state,
@@ -162,12 +175,17 @@ function Searchbar(props) {
 		});
 	}
 
+	// submit is used by the apply button when it is clicked so we can
+	// propagate the state to the parent component.
 	function submit(ev) {
 		ev.preventDefault();
 		setQuery(state);
 		setDirty(false);
+		return false;
 	}
 
+	// reset is used by the reset button when it is clicked so we can reset
+	// the state to the query value.
 	function reset() {
 		setState(query);
 	}
@@ -217,19 +235,28 @@ function Searchbar(props) {
 }
 
 function Table(props) {
+	// results and total are given by the search results. The length of the
+	// results isn't expected to be equal to total, as the query is run
+	// with a limit parameter and no actual API-based pagination is done.
 	const {results, total} = props;
-	const [selected, setSelected] = React.useState(null);
+	
+	// page and selected are used to control what gets displayed on screen,
+	// either by limiting the number of elements or displaying the details
+	// of a result.
 	const [page, setPage] = React.useState(1);
-	const totalPages = Math.ceil(results.length/pageSize);
+	const [selected, setSelected] = React.useState(null);
 
-	function toggle(uid) {
-		setSelected(selected == uid ? null : uid);
-		return false;
-	}
-
+	// If we don't have anything to display, fallback to a line saying so,
+	// and a nice message. Query strings can be frustrating, and Bleve's
+	// format is especially horendous.
 	if (results.length == 0) {
+		const quotes = [
+			":-)",
+			"Seems like good news.",
+			"Do not fear failure, but rather feat not trying.",
+		];
 		return (
-			<p className={styles.NoResult}>No match for this query. {inspirational()}</p>
+			<p className={styles.NoResult}>No match for this query. {quotes[Math.floor(Math.random() * quotes.length)]}</p>
 		)
 	}
 
@@ -238,6 +265,9 @@ function Table(props) {
 	// page (to avoid the "-1" page, and "max+1" page).
 	// Special case if there is less than maxPages pages to display, in
 	// which case we display them all.
+	const maxPages = 5;
+	const pageSize = 15;
+	const totalPages = Math.ceil(results.length/pageSize);
 	var pages;
 	if (totalPages == 1) {
 		pages = [];
@@ -251,6 +281,15 @@ function Table(props) {
 		});
 	}
 
+	// toggle is used when clicking on a row to display the row's core
+	// details.
+	function toggle(uid) {
+		setSelected(selected == uid ? null : uid);
+		return false;
+	}
+
+	// Display both the pagination, the table, and the eventually selected
+	// coredump details.
 	return (
 		<React.Fragment>
 			<ul className={styles.Pagination}>
@@ -292,10 +331,9 @@ function Table(props) {
 function Core(props) {
 	const {core} = props;
 
-	function analyze(uid) {
-		fetch(`${document.config.baseURL}/cores/${uid}/_analyze`, { method: 'POST' });
-	}
-
+	// The component is a pure component that does nothing else than
+	// extract a bunch of formatting details from the already non-trivial
+	// Table component.
 	return (
 		<React.Fragment>
 			<ul>
@@ -327,5 +365,3 @@ function Core(props) {
 		</React.Fragment>
 	);
 }
-
-export default App;
