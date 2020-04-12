@@ -386,11 +386,6 @@ function Table(props) {
 function Core(props) {
 	const {core} = props;
 
-	const [pointless, setPointless] = React.useState(false);
-	if (pointless) {
-		throw new Error('pointless error');
-	}
-
 	// The component is a pure component that does nothing else than
 	// extract a bunch of formatting details from the already non-trivial
 	// Table component.

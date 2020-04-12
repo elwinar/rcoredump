@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reset button on the searchbar
 - Add a cleanup routine and endpoint
 - Display an error if the API fails
+- Top-level handling of javascript error in the webapp
 ### Changed
 - Use a lighter secondary color for better contrast with the border color
 ### Fixed
