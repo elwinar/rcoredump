@@ -13,23 +13,6 @@ function decodeQuery(q) {
 	return JSON.parse(atob(q));
 }
 
-// Generate the URL for a query string s.
-function queryTo(s) {
-	return `/?q=${encodeQuery({q: s})}`
-}
-
-// Return a human-readable version of a size in Bytes.
-function formatSize(bytes) {
-	const threshold = 1000;
-	const units = ['B', 'KB','MB','GB','TB','PB','EB','ZB','YB'];
-	let u = 0;
-	while (Math.abs(bytes) >= threshold && u < units.length - 1) {
-		bytes /= threshold;
-		u += 1;
-	}
-	return bytes.toFixed(1) + ' ' + units[u];
-}
-
 // dayjs is a lightweight momentjs-like library with mostly compatible API. I
 // just need the UTC plugin to be able to handle timezones.
 var utc = require('dayjs/plugin/utc');
@@ -64,7 +47,6 @@ export class AppBoundary extends React.Component {
 
 	goback() {
 		this.setState({error: false});
-		history.goto(0);
 	}
 
 	render() {
@@ -127,32 +109,12 @@ export function App() {
 			});
 	}, [query]);
 
-	// Intercept clicks on all internal links, and hijack them to allow
-	// changing the query instead of reloading the page. This allows for
-	// internal query links anywhere in the hierarchy while keeping the
-	// standard browser actions for links.
-	React.useEffect(function() {
-		window.addEventListener('click', function (event) {
-			if (event.target.nodeName !== "A") {
-				return;
-			}
-
-			const url = new URL(event.target.href);
-			if (url.hostname !== window.location.hostname || url.pathname !== window.location.pathname) {
-				return;
-			}
-
-			event.preventDefault();
-			setQuery(decodeQuery(new URLSearchParams(url.search).get('q')));
-			return false;
-		});
-	}, []);
-
 	// The popstate event notify of the user using the back button of his
 	// browser (or other similar event). We don't really need to cleanup
 	// because the App component should never be unmounted.
 	React.useEffect(function() {
 		window.addEventListener('popstate', function (event) {
+			console.log('popstate');
 			setQuery(decodeQuery(new URLSearchParams(window.location.search).get('q')));
 		});
 	}, []);
@@ -386,6 +348,17 @@ function Table(props) {
 function Core(props) {
 	const {core} = props;
 
+	function formatSize(bytes) {
+		const threshold = 1000;
+		const units = ['B', 'KB','MB','GB','TB','PB','EB','ZB','YB'];
+		let u = 0;
+		while (Math.abs(bytes) >= threshold && u < units.length - 1) {
+			bytes /= threshold;
+			u += 1;
+		}
+		return bytes.toFixed(1) + ' ' + units[u];
+	}
+
 	// The component is a pure component that does nothing else than
 	// extract a bunch of formatting details from the already non-trivial
 	// Table component.
@@ -397,12 +370,12 @@ function Core(props) {
 			</ul>
 			<h2>executable</h2>
 			<dl>
-				<dt>executable_hash</dt><dd><a href={queryTo(`executable_hash:"${core.executable_hash}"`)}>{core.executable_hash}</a></dd>
+				<dt>executable_hash</dt><dd><QueryLink query={`executable_hash:"${core.executable_hash}"`}>{core.executable_hash}</QueryLink></dd>
 				<dt>executable_path</dt><dd>{core.executable_path}</dd>
 			</dl>
 			<h2>coredump</h2>
 			<dl>
-				<dt>uid</dt><dd><a href={queryTo(`uid:"${core.uid}"`)}>{core.uid}</a></dd>
+				<dt>uid</dt><dd><QueryLink query={`uid:"${core.uid}"`}>{core.uid}</QueryLink></dd>
 				{Object.keys(core.metadata).map(x => {
 					return (
 						<React.Fragment key={x}>
@@ -419,4 +392,22 @@ function Core(props) {
 			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
 		</React.Fragment>
 	);
+}
+
+// QueryLink can be used to make a direct link to a query search. The link is a
+// standard HTML link with a valid href, but the navigation is intercepted to
+// be handled by the app. This allow the user to copy-paste the link via his
+// navigator contextual menu, while making internal navigation easy.
+function QueryLink(props) {
+	const {query} = props;
+	const href = `/?q=${encodeQuery({q: query})}`;
+
+	function redirect(event) {
+		event.preventDefault();
+		history.pushState({}, '', href);
+		window.dispatchEvent(new Event('popstate'));
+		return false;
+	}
+
+	return <a href={href} onClick={redirect}>{props.children}</a>
 }
