@@ -46,7 +46,54 @@ function boolattr(b) {
 }
 
 
-export default function App() {
+// AppBoundary is the error-catching component for the whole app.
+export class AppBoundary extends React.Component {
+	constructor(props) {
+		super(props);
+		this.state = { 
+			error: false,
+		};
+	}
+
+	componentDidCatch(error, info) {
+		this.setState({
+			error: error,
+			info: info,
+		});
+	}
+
+	goback() {
+		this.setState({error: false});
+		history.goto(0);
+	}
+
+	render() {
+		if (this.state.error !== false) {
+			return (
+				<React.Fragment>
+					<Header/>
+					<h2>something went wrong</h2>
+					<p>{ this.state.error.message }</p>
+					<pre>{ this.state.info.componentStack.slice(1) }</pre>
+					{ this.state.showStack
+						? (
+							<React.Fragment>
+								<p><a href="#" onClick={() => this.setState({showStack: false})}>hide stack</a></p>
+								<pre>{ this.state.error.stack }</pre>
+							</React.Fragment>
+						)
+						: <p><a href="#" onClick={() => this.setState({showStack: true})}>show stack</a></p>
+					}
+					<p><a href="#" onClick={() => this.goback()}>go back</a></p>
+				</React.Fragment>
+			);
+		}
+
+		return this.props.children;
+	}
+}
+
+export function App() {
 	// query and results are the primary states of the whole app. Initial
 	// value of the query is especially important as the query will be
 	// runned immediately during the first render. We use a lazy load to
@@ -127,9 +174,7 @@ export default function App() {
 	// in case of error.
 	return (
 		<React.Fragment>
-			<header className={styles.Header}>
-				<h1>RCoredump <sup>{document.Version}</sup></h1>
-			</header>
+			<Header/>
 			<Searchbar setQuery={setQuery} query={query} />
 			{ result.error == null
 				? (
@@ -143,6 +188,16 @@ export default function App() {
 				)
 			}
 		</React.Fragment>
+	);
+}
+
+// Header is a separate component so it can be shared in the AppBoundary and in
+// the App itself.
+function Header() {
+	return ( 
+		<header className={styles.Header}>
+			<h1>RCoredump <sup>{document.Version}</sup></h1>
+		</header>
 	);
 }
 
@@ -239,7 +294,7 @@ function Table(props) {
 	// results isn't expected to be equal to total, as the query is run
 	// with a limit parameter and no actual API-based pagination is done.
 	const {results, total} = props;
-	
+
 	// page and selected are used to control what gets displayed on screen,
 	// either by limiting the number of elements or displaying the details
 	// of a result.
@@ -330,6 +385,11 @@ function Table(props) {
 
 function Core(props) {
 	const {core} = props;
+
+	const [pointless, setPointless] = React.useState(false);
+	if (pointless) {
+		throw new Error('pointless error');
+	}
 
 	// The component is a pure component that does nothing else than
 	// extract a bunch of formatting details from the already non-trivial

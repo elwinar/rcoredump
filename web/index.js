@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import App from './App';
+import {AppBoundary, App} from './App';
 import './index.scss';
 
 if (document.config === undefined) {
@@ -9,4 +9,4 @@ if (document.config === undefined) {
 	};
 }
 
-ReactDOM.render(<App />, document.getElementById('root'));
+ReactDOM.render(<AppBoundary><App /></AppBoundary>, document.getElementById('root'));
