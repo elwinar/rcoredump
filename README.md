@@ -88,7 +88,7 @@ Usage of rcoredumpd: rcoredumpd [options]
   -index-type string
         type of index to use (values: bleve) (default "bleve")
   -retention-duration duration
-        hours to keep an indexed coredump (default 168h0m0s)
+        duration to keep an indexed coredump (e.g: "168h"), 0 to disable
   -size-buckets string
         buckets report the coredump sizes for (default "1MB,10MB,100MB,1GB,10GB")
   -store-type string

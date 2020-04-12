@@ -102,7 +102,7 @@ func (s *service) configure() {
 	fs.StringVar(&s.filelog, "filelog", "-", "path of the file to log into (\"-\" for stdout)")
 	fs.BoolVar(&s.printVersion, "version", false, "print the version of rcoredumpd")
 	fs.StringVar(&s.sizeBuckets, "size-buckets", "1MB,10MB,100MB,1GB,10GB", "buckets report the coredump sizes for")
-	fs.DurationVar(&s.retentionDuration, "retention-duration", 0, "duration to keep an indexed coredump (e.g: \"168h\")")
+	fs.DurationVar(&s.retentionDuration, "retention-duration", 0, "duration to keep an indexed coredump (e.g: \"168h\"), 0 to disable")
 
 	// Interface options.
 	fs.StringVar(&s.indexType, "index-type", "bleve", "type of index to use (values: bleve)")
