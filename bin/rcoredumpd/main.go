@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log/syslog"
 	"net/http"
@@ -303,7 +302,7 @@ func (s *service) run(ctx context.Context) {
 	s.logger.Info("stopping server")
 }
 
-// logRequest is the logging middleware for the HTTP server.
+// Log a request with a few metadata to ensure requests are monitorable.
 func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	start := time.Now()
 
@@ -319,7 +318,7 @@ func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.
 	)
 }
 
-// findUnanalyzed coredumps and feed them to the analyze queue.
+// Find unanalyzed coredumps and feed them to the analyze queue.
 func (s *service) findUnanalyzed(ctx context.Context) {
 	for {
 		// Note: searching for boolean fields in BleveSearch is fucked
@@ -346,7 +345,7 @@ func (s *service) findUnanalyzed(ctx context.Context) {
 	}
 }
 
-// findCleanable coredumps and feed them to the cleanup queue.
+// Find cleanable coredumps and feed them to the cleanup queue.
 func (s *service) findCleanable(ctx context.Context) {
 	t := time.NewTimer(1 * time.Minute)
 	for {
@@ -569,8 +568,10 @@ func (s *service) getCore(w http.ResponseWriter, r *http.Request, p httprouter.P
 	}
 	defer f.Close()
 
-	w.WriteHeader(http.StatusOK)
-	io.Copy(w, f)
+	// We ignore the error here, because the zero-value is fine in case of
+	// error.
+	info, _ := f.Stat()
+	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }
 
 // deleteCore handle the request to remove a coredump.
@@ -618,8 +619,10 @@ func (s *service) getExecutable(w http.ResponseWriter, r *http.Request, p httpro
 	}
 	defer f.Close()
 
-	w.WriteHeader(http.StatusOK)
-	io.Copy(w, f)
+	// We ignore the error here, because the zero-value is fine in case of
+	// error.
+	info, _ := f.Stat()
+	http.ServeContent(w, r, info.Name(), info.ModTime(), f)
 }
 
 // Aliases of the shared types, for convenience.

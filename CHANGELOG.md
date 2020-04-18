@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Changed
 - Use a QueryLink component to handle internal navigation via history
+- Serve coredumps and executables with Content-Length header (and other standard headers)
 
 ## [v0.9.0](https://github.com/elwinar/rcoredump/releases/tag/v0.9.0) - 2020-04-12
 ### Added
