@@ -67,6 +67,7 @@ export class AppBoundary extends React.Component {
 						: <p><a href="#" onClick={() => this.setState({showStack: true})}>show stack</a></p>
 					}
 					<p><a href="#" onClick={() => this.goback()}>go back</a></p>
+					<Footer/>
 				</React.Fragment>
 			);
 		}
@@ -149,6 +150,7 @@ export function App() {
 					</React.Fragment>
 				)
 			}
+			<Footer/>
 		</React.Fragment>
 	);
 }
@@ -156,11 +158,19 @@ export function App() {
 // Header is a separate component so it can be shared in the AppBoundary and in
 // the App itself.
 function Header() {
-	return ( 
+	return (
 		<header className={styles.Header}>
 			<h1>RCoredump <sup>{document.Version}</sup></h1>
 		</header>
 	);
+}
+
+function Footer() {
+	return (
+		<footer className={styles.Footer}>
+			<p>For documentation, issues, see the <a href="https://github.com/elwinar/rcoredump">repository</a>.</p>
+		</footer>
+	)
 }
 
 function Searchbar(props) {

@@ -46,6 +46,13 @@ a {
 	}
 }
 
+.Footer {
+	p {
+		text-align: right;
+		font-size: 0.8em;
+	}
+}
+
 input, button {
 	&:focus {
 		outline: 0 !important;
