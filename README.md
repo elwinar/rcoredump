@@ -63,11 +63,14 @@ Or clone the repository and build it by hand:
 ## Configuration
 
 Both binaries can be configured using either the CLI or a configuration file
-with an ini-like syntax. Both usage message can be printed on screen using the
-`-help` flag.
+with an ini-like syntax (see [rcoredump.conf.example](./rcoredump.conf.example)
+and [rcoredumpd.conf.example](./rcoredumpd.conf.example)). Both usage message
+can be printed on screen using the `-help` flag.
 
 *Note* The flag syntax follow the Golang's standard package convention,
 described [here](https://golang.org/pkg/flag/#hdr-Command_line_flag_syntax).
+The same convention is applied for the configuration files, minus the dashes
+before the flag names.
 
 ### `rcoredumpd`
 
