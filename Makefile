@@ -26,11 +26,13 @@ install: ## Install the dependencies needed for building the package
 	go get github.com/karalabe/xgo
 
 .PHONY: build
-build: web rcoredumpd rcoredump monkey ## Build all targets
+build: web rcoredumpd rcoredump crashers ## Build all targets
 
 .PHONY: test
 test: ## Run the package tests
-	go test ./... -race
+	# We don't use the test shortcut ./... because the crashers would make
+	# the command fail.
+	go test . ./conf ./bin/rcoredump ./bin/rcoredumpd -race
 
 .PHONY: serve
 serve: ## Run the web interface
@@ -51,10 +53,10 @@ rcoredumpd: ## Build the server
 rcoredump: ## Build the client
 	go build -o $(build_dir) -ldflags $(ldflags) $(bin_dir)/rcoredump
 
-.PHONY: monkey
-monkey: ## Build the test crashers
-	go build -o $(build_dir) $(bin_dir)/monkey-go
-	gcc -o $(build_dir)/monkey-c $(bin_dir)/monkey-c/*.c
+.PHONY: crashers
+crashers: ## Build the test crashers
+	$(foreach crasher,$(shell ls bin/crashers/*.go), go build -o $(build_dir)/crashers/$(subst .,-,$(notdir $(crasher))) $(crasher);)
+	$(foreach crasher,$(shell ls bin/crashers/*.c), gcc -o $(build_dir)/crashers/$(subst .,-,$(notdir $(crasher))) $(crasher);)
 
 .PHONY: release
 release: ## Build the release files

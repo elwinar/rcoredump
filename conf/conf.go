@@ -93,6 +93,9 @@ func parse(fs *flag.FlagSet, args []string, conf string) error {
 			continue
 		}
 
+		// Ignore dashes at the start of lines.
+		line = strings.TrimLeft(line, "-")
+
 		chunks := strings.SplitN(line, "=", 2)
 		if len(chunks) == 1 {
 			chunks = append(chunks, "true")

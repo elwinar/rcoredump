@@ -5,9 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Crasher programs
+- Configuration example with a README for quick demonstration
 ### Changed
 - Use a QueryLink component to handle internal navigation via history
 - Serve coredumps and executables with Content-Length header (and other standard headers)
+### Removed
+- Monkey programs (replaced and extended by crashers)
 
 ## [v0.9.0](https://github.com/elwinar/rcoredump/releases/tag/v0.9.0) - 2020-04-12
 ### Added
