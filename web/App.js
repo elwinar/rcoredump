@@ -33,7 +33,7 @@ function boolattr(b) {
 export class AppBoundary extends React.Component {
 	constructor(props) {
 		super(props);
-		this.state = { 
+		this.state = {
 			error: false,
 		};
 	}
@@ -75,6 +75,7 @@ export class AppBoundary extends React.Component {
 		return this.props.children;
 	}
 }
+
 
 export function App() {
 	// query and results are the primary states of the whole app. Initial
@@ -280,7 +281,7 @@ function Table(props) {
 		const quotes = [
 			":-)",
 			"Seems like good news.",
-			"Do not fear failure, but rather feat not trying.",
+			"Do not fear failure, but rather fear not trying.",
 		];
 		return (
 			<p className={styles.NoResult}>No match for this query. {quotes[Math.floor(Math.random() * quotes.length)]}</p>
@@ -308,13 +309,6 @@ function Table(props) {
 		});
 	}
 
-	// toggle is used when clicking on a row to display the row's core
-	// details.
-	function toggle(uid) {
-		setSelected(selected == uid ? null : uid);
-		return false;
-	}
-
 	// Display both the pagination, the table, and the eventually selected
 	// coredump details.
 	return (
@@ -338,7 +332,7 @@ function Table(props) {
 					{results.slice((page-1)*pageSize, page*pageSize).map(x => {
 						return (
 							<React.Fragment key={x.uid}>
-								<tr onClick={() => toggle(x.uid)} active={boolattr(selected == x.uid)}>
+								<tr onClick={() => setSelected(selected == uid ? null : uid)} active={boolattr(selected == x.uid)}>
 									<td>▶</td>
 									<td>{formatDate(x.dumped_at)}</td>
 									<td>{x.hostname}</td>
