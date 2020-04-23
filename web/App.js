@@ -332,7 +332,7 @@ function Table(props) {
 					{results.slice((page-1)*pageSize, page*pageSize).map(x => {
 						return (
 							<React.Fragment key={x.uid}>
-								<tr onClick={() => setSelected(selected == uid ? null : uid)} active={boolattr(selected == x.uid)}>
+								<tr onClick={() => setSelected(selected == x.uid ? null : x.uid)} active={boolattr(selected == x.uid)}>
 									<td>▶</td>
 									<td>{formatDate(x.dumped_at)}</td>
 									<td>{x.hostname}</td>
@@ -394,6 +394,13 @@ function Core(props) {
 				<dt>analyzed_at</dt><dd>{formatDate(core.analyzed_at)}</dd>
 			</dl>
 			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
+			<h3>download & debug</h3>
+			<pre>
+				curl -s "{document.config.baseURL}/cores/{core.uid}" --output {core.executable}.{core.uid}<br/>
+				curl -s "{document.config.baseURL}/executables/{core.executable_hash}" --output {core.executable}<br/>
+				{core.lang == "C" && `gdb ${core.executable} ${core.executable}.${core.uid}`}
+				{core.lang == "Go" && `dlv core ${core.executable} ${core.executable}.${core.uid}`}
+			</pre>
 		</React.Fragment>
 	);
 }

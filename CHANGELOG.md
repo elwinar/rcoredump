@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Crasher programs
 - Configuration example with a README for quick demonstration
+- Script to copy-paste to download and executable and stack, and start a debug session with the adapter debugger
 ### Changed
 - Use a QueryLink component to handle internal navigation via history
 - Serve coredumps and executables with Content-Length header (and other standard headers)
