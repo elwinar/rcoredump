@@ -37,3 +37,8 @@ Upload the results in the release draft.
 ## Release the version
 
 Ensure the _pre-release_ checkbox is ticked, and hit the _publish_ button.
+
+## Update the milestone
+
+Close the one for the published version. Create the next version's milestone
+and choose the issues to tackle.
