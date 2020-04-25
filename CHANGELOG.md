@@ -5,10 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [v0.10.0](https://github.com/elwinar/rcoredump/releases/tag/v0.10.0) - 2020-04-25
 ### Added
 - Crasher programs
 - Configuration example with a README for quick demonstration
 - Script to copy-paste to download and executable and stack, and start a debug session with the adapter debugger
+- Link to the repository in the webapp footer
 ### Changed
 - Use a QueryLink component to handle internal navigation via history
 - Serve coredumps and executables with Content-Length header (and other standard headers)

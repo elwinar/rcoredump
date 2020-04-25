@@ -16,9 +16,10 @@ Commit the file, and tag the commit with the new version.
 Especially command-line options, any assertion about behavior.
 
 Update the screenshot by compiling the webapp (`make web`), the server (`make
-rcoredumpd`), and taking a screenshot of the homepage with the standard
-dataset. Ensure the version displayed is the correct one (it should be taken
-from the git tag when compiling the server.)
+rcoredumpd`), and taking a screenshot of the homepage with the standard dataset
+(all the crashers run thrice in succession, so the screenshot exhibits the
+pagination). Ensure the version displayed is the correct one (it should be
+taken from the git tag when compiling the server.)
 
 Amend with the screenshot and the readme. Update the tag.
 
