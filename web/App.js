@@ -363,6 +363,14 @@ function Core(props) {
 		return bytes.toFixed(1) + ' ' + units[u];
 	}
 
+	const downloadAndDebug = React.useRef();
+	function copy() {
+		const selection = window.getSelection();
+		selection.selectAllChildren(downloadAndDebug.current);
+		document.execCommand("copy");
+		selection.removeAllRanges();
+	}
+
 	// The component is a pure component that does nothing else than
 	// extract a bunch of formatting details from the already non-trivial
 	// Table component.
@@ -389,18 +397,18 @@ function Core(props) {
 					);
 				})}
 			</dl>
-			<h2>stack trace</h2>
-			<dl>
-				<dt>analyzed_at</dt><dd>{formatDate(core.analyzed_at)}</dd>
-			</dl>
-			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
-			<h3>download & debug</h3>
-			<pre>
+			<h3>download & debug <button onClick={copy}>copy</button></h3>
+			<pre ref={downloadAndDebug}>
 				curl -s "{document.config.baseURL}/cores/{core.uid}" --output {core.executable}.{core.uid}<br/>
 				curl -s "{document.config.baseURL}/executables/{core.executable_hash}" --output {core.executable}<br/>
 				{core.lang == "C" && `gdb ${core.executable} ${core.executable}.${core.uid}`}
 				{core.lang == "Go" && `dlv core ${core.executable} ${core.executable}.${core.uid}`}
 			</pre>
+			<h2>stack trace</h2>
+			<dl>
+				<dt>analyzed_at</dt><dd>{formatDate(core.analyzed_at)}</dd>
+			</dl>
+			{core.trace !== undefined ? <pre>{core.trace}</pre> : <p>No trace</p>}
 		</React.Fragment>
 	);
 }

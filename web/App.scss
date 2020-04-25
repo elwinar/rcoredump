@@ -87,6 +87,10 @@ button {
 	cursor: pointer;
 }
 
+h3 > button {
+	font-size: 1rem;
+}
+
 .Radio {
 	cursor: pointer;
 	border-width: 1px 0;
