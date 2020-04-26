@@ -11,6 +11,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+func (s *service) notFound(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusNotFound, fmt.Errorf(`endpoint %q not found`, r.URL.Path))
+}
+
+func (s *service) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusMethodNotAllowed, fmt.Errorf(`method %q not allowed for endpoint %q`, r.Method, r.URL.Path))
+}
+
 func (s *service) root(rw http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	rw.Write([]byte(s.rootHTML))
 }

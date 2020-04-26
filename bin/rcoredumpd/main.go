@@ -217,13 +217,13 @@ func (s *service) init() (err error) {
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<title>RCoredump</title>
-				<link rel="stylesheet" href="/index.css">
+				<link rel="stylesheet" href="/assets/index.css">
 			</head>
 			<body>
 				<noscript>You need to enable JavaScript to run this app.</noscript>
 				<div id="root"></div>
 				<script>document.Version = '%s'; document.BuiltAt = '%s'; document.Commit = '%s';</script>
-				<script src="/index.js"></script>
+				<script src="/assets/index.js"></script>
 			</body>
 		</html>
 	`, Version, BuiltAt, Commit)
@@ -263,7 +263,6 @@ func (s *service) run(ctx context.Context) {
 
 	s.logger.Debug("registering routes")
 	router := httprouter.New()
-	router.NotFound = http.FileServer(s.assets)
 	router.GET("/", s.root)
 	router.GET("/about", s.about)
 	router.POST("/cores", s.indexCore)
@@ -274,6 +273,9 @@ func (s *service) run(ctx context.Context) {
 	router.HEAD("/executables/:hash", s.lookupExecutable)
 	router.GET("/executables/:hash", s.getExecutable)
 	router.Handler(http.MethodGet, "/metrics", promhttp.Handler())
+	router.ServeFiles("/assets/*filepath", s.assets)
+	router.NotFound = http.HandlerFunc(s.notFound)
+	router.MethodNotAllowed = http.HandlerFunc(s.methodNotAllowed)
 
 	s.logger.Debug("registering middlewares")
 	stack := negroni.New()
