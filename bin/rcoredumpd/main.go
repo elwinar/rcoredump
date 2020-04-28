@@ -218,6 +218,7 @@ func (s *service) init() (err error) {
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
 				<title>RCoredump</title>
 				<link rel="stylesheet" href="/assets/index.css">
+				<link rel="shortcut icon" type="image/svg" href="/assets/favicon.svg"/>
 			</head>
 			<body>
 				<noscript>You need to enable JavaScript to run this app.</noscript>

@@ -36,12 +36,12 @@ test: ## Run the package tests
 
 .PHONY: serve
 serve: ## Run the web interface
-	./node_modules/.bin/parcel -d $(build_dir)/web/ web/index.html --host 0.0.0.0
+	./node_modules/.bin/parcel -d $(build_dir)/web/ --host 0.0.0.0 web/index.html web/favicon.svg
 
 .PHONY: web
 web: ## Build the web interface
 	rm -rf $(build_dir)/web
-	./node_modules/.bin/parcel build -d $(build_dir)/web/ web/index.js
+	./node_modules/.bin/parcel build -d $(build_dir)/web/ web/index.js web/favicon.svg
 	rm -rf $(bin_dir)/rcoredumpd/internal
 	statik -f -src $(build_dir)/web -dest $(bin_dir)/rcoredumpd/ -p internal -m
 
