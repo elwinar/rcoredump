@@ -282,6 +282,7 @@ func (s *service) run(ctx context.Context) {
 	stack := negroni.New()
 	stack.Use(negroni.NewRecovery())
 	stack.Use(negroni.HandlerFunc(s.logRequest))
+	stack.Use(negroni.HandlerFunc(s.delayRequest))
 	stack.Use(cors.Default())
 	stack.UseHandler(router)
 
@@ -318,6 +319,22 @@ func (s *service) logRequest(rw http.ResponseWriter, r *http.Request, next http.
 		"path", r.URL.Path,
 		"status", res.Status(),
 	)
+}
+
+func (s *service) delayRequest(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	// Arbitrary delay can be used to add artificial slowness to the API,
+	// so we can test the API with various conditions.
+	rawDelay := r.FormValue("delay")
+	if len(rawDelay) != 0 {
+		delay, err := time.ParseDuration(rawDelay)
+		if err != nil {
+			writeError(rw, http.StatusBadRequest, wrap(err, "parsing delay"))
+			return
+		}
+		time.Sleep(delay)
+	}
+
+	next(rw, r)
 }
 
 // Find unanalyzed coredumps and feed them to the analyze queue.

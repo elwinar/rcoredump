@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Add a delay parameter to every API endpoint to allow testing under slow conditions
+- Add a special message on the app first load to avoid confusion with empty results
 ### Changed
 - Assets are not served under the /assets directory
 - Return a JSON response from all API calls (except assets)

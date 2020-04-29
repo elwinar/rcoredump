@@ -89,7 +89,7 @@ export function App() {
 		}
 		return decodeQuery(raw);
 	});
-	const [result, setResult] = React.useState({results: [], total: 0, error: null});
+	const [result, setResult] = React.useState(null);
 
 	// Whenever the query change, we want to run the query and update the
 	// result. We don't check the return status yet, because in most
@@ -99,6 +99,7 @@ export function App() {
 		for (const name in query) {
 			params.push(encodeURIComponent(name) + '=' + encodeURIComponent(query[name]));
 		}
+		params.push('delay=5s')
 		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
 			.then(function(res) {
 				return res.json();
@@ -140,7 +141,11 @@ export function App() {
 		<React.Fragment>
 			<Header/>
 			<Searchbar setQuery={setQuery} query={query} />
-			{ result.error == null
+			{ result === null 
+				? (
+					<p>No result yet.</p>
+				)
+			: result.error == null
 				? (
 					<Table results={result.results || []} total={result.total} />
 				)
