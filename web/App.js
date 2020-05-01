@@ -99,7 +99,6 @@ export function App() {
 		for (const name in query) {
 			params.push(encodeURIComponent(name) + '=' + encodeURIComponent(query[name]));
 		}
-		params.push('delay=5s')
 		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
 			.then(function(res) {
 				return res.json();
@@ -117,7 +116,6 @@ export function App() {
 	// because the App component should never be unmounted.
 	React.useEffect(function() {
 		window.addEventListener('popstate', function (event) {
-			console.log('popstate');
 			setQuery(decodeQuery(new URLSearchParams(window.location.search).get('q')));
 		});
 	}, []);
@@ -214,7 +212,6 @@ function Searchbar(props) {
 		ev.preventDefault();
 		setQuery(state);
 		setDirty(false);
-		return false;
 	}
 
 	// reset is used by the reset button when it is clicked so we can reset
@@ -431,7 +428,6 @@ function QueryLink(props) {
 		event.preventDefault();
 		history.pushState({}, '', href);
 		window.dispatchEvent(new Event('popstate'));
-		return false;
 	}
 
 	return <a href={href} onClick={redirect}>{props.children}</a>
