@@ -1,7 +1,7 @@
 import React from 'react';
 import styles from './App.scss';
 import dayjs from 'dayjs';
-
+import api from './api.js';
 
 // Encore a query as string.
 function encodeQuery(q) {
@@ -27,7 +27,6 @@ function formatDate(date) {
 function boolattr(b) {
 	return b ? 'true' : undefined;
 }
-
 
 // AppBoundary is the error-catching component for the whole app.
 export class AppBoundary extends React.Component {
@@ -76,86 +75,128 @@ export class AppBoundary extends React.Component {
 	}
 }
 
+// Context used for passing the global state and dispatch function down.
+const ctx = React.createContext();
 
+// Zero state represent the uninitialized state value. Kinda like a default
+// value.
+const zeroState = {
+	query: {q: '*', sort: 'dumped_at', order: 'desc', size: '150'},
+	cores: null,
+	total: 0,
+	error: null,
+};
+
+// Initialize the state, essentially updating it to use the query encoded in
+// the URL, if any.
+function initializeState (state) {
+	const raw = new URLSearchParams(window.location.search).get('q');
+	if (raw === null) {
+		return state
+	}
+	return {
+		...state,
+		query: decodeQuery(raw),
+	};
+}
+
+// The reducer handles global state changes. Not strictly necessary for now,
+// but the future addition of features relying on more complex logic and API
+// calls makes it useful.
+function reducer(state, action) {
+	console.log(action);
+	switch (action.type) {
+		case 'set_query':
+			return {
+				...state,
+				query: action.query,
+				cores: null,
+				total: 0,
+			};
+		case 'set_cores':
+			return {
+				...state,
+				cores: action.cores,
+				total: action.total,
+			};
+		case 'set_error':
+			return {
+				...state,
+				error: action.err,
+			};
+		default:
+			throw new Error(`unknown action ${action.type}`);
+	}
+}
+
+// App is the main component, and is mainly concerned with high-level features
+// like state management and top-level components.
 export function App() {
-	// query and results are the primary states of the whole app. Initial
-	// value of the query is especially important as the query will be
-	// runned immediately during the first render. We use a lazy load to
-	// avoid doing the job on every render.
-	const [query, setQuery] = React.useState(function() {
-		const raw = new URLSearchParams(window.location.search).get('q');
-		if (raw === null) {
-			return {q: '*', sort: 'dumped_at', order: 'desc', size: '150'};
-		}
-		return decodeQuery(raw);
-	});
-	const [result, setResult] = React.useState(null);
+	const [state, dispatch] = React.useReducer(reducer, zeroState, initializeState);
 
-	// Whenever the query change, we want to run the query and update the
-	// result. We don't check the return status yet, because in most
-	// actionable cases we have an error message in the payload.
+	// When the query change, we want to run the search query and update
+	// the cores.
 	React.useEffect(function() {
-		let params = [];
-		for (const name in query) {
-			params.push(encodeURIComponent(name) + '=' + encodeURIComponent(query[name]));
-		}
-		fetch(`${document.config.baseURL}/cores?${params.join('&')}`)
+		api.search(state.query)
 			.then(function(res) {
 				return res.json();
 			})
 			.then(function(res) {
-				setResult(res);
+				if (res.error) {
+					dispatch({type: 'set_error', err: res.error});
+					return;
+				}
+				dispatch({type: 'set_cores', cores: res.results, total: res.total});
 			})
-			.catch(function(e) {
-				setResult({error: e.message});
+			.catch(function(err) {
+				dispatch({type: 'set_error', err: err.message});
 			});
-	}, [query]);
+	}, [state.query]);
 
 	// The popstate event notify of the user using the back button of his
-	// browser (or other similar event). We don't really need to cleanup
-	// because the App component should never be unmounted.
+	// browser (or other similar event).
 	React.useEffect(function() {
-		window.addEventListener('popstate', function (event) {
-			setQuery(decodeQuery(new URLSearchParams(window.location.search).get('q')));
-		});
+		function handler() {
+			dispatch({
+				type: 'set_query',
+				query: decodeQuery(new URLSearchParams(window.location.search).get('q')),
+			});
+		}
+		window.addEventListener('popstate', handler);
+		return function() {
+			window.removeEventListener('popstate', handler);
+		};
 	}, []);
 
 	// When the query change, we want to update the URL value. We have to
 	// check for the current value despite the hook dependency on the query
-	// because the any history event already does this, and doing it again
-	// break the forward-history.
+	// because the popstate history event already does this, and doing it
+	// again break the forward-history.
 	React.useEffect(function(){
-		const q = encodeQuery(query);
+		const q = encodeQuery(state.query);
 		if (new URLSearchParams(window.location.search).get('q') === q) {
 			return;
 		}
 		history.pushState({}, '', `/?q=${q}`);
-	}, [query]);
+	}, [state.query]);
 
 	// Finally, render the component itself. The header and searchbar are
-	// always displayed, and the table gives way for the fallback display
-	// in case of error.
+	// always displayed, and the table gives way for fallback display in
+	// case of error or if the first query didn't execute yet.
 	return (
-		<React.Fragment>
+		<ctx.Provider value={{state, dispatch}}>
 			<Header/>
-			<Searchbar setQuery={setQuery} query={query} />
-			{ result === null 
-				? (
-					<p>No result yet.</p>
-				)
-			: result.error == null
-				? (
-					<Table results={result.results || []} total={result.total} />
-				)
-				: (
-					<React.Fragment>
-						<h2>Unexpected error</h2>
-						<p>{ result.error }</p>
-					</React.Fragment>
-				)
-			}
+			<Searchbar />
+			{state.error !== null && (
+				<React.Fragment>
+					<h2>Unexpected error</h2>
+					<p>{state.error}</p>
+				</React.Fragment>
+			)}
+			{state.cores === null && <p>No result yet.</p>}
+			{state.cores !== null && <Table />}
 			<Footer/>
-		</React.Fragment>
+		</ctx.Provider>
 	);
 }
 
@@ -169,6 +210,8 @@ function Header() {
 	);
 }
 
+// Footer is a separate component so it can be shared in the AppBoundary and in
+// the App itself.
 function Footer() {
 	return (
 		<footer className={styles.Footer}>
@@ -177,11 +220,14 @@ function Footer() {
 	)
 }
 
+// Searchbar is one of the top-level components, tasked with handling the
+// interface to edit the search query.
 function Searchbar(props) {
-	// query and state are respectively the initial and current value of
-	// the form. We use setQuery to warn the components above when the use
-	// wants to apply the local state to the app.
-	const {query, setQuery} = props;
+	// Get the query from the state, and the dispatcher to send updates.
+	const {state: {query}, dispatch} = React.useContext(ctx);
+
+	// The local state is initialized to the current value, and will hold
+	// dirty values until the user submit the form.
 	const [state, setState] = React.useState(query);
 
 	// We want to update the current state when the query change. As the
@@ -208,9 +254,9 @@ function Searchbar(props) {
 
 	// submit is used by the apply button when it is clicked so we can
 	// propagate the state to the parent component.
-	function submit(ev) {
-		ev.preventDefault();
-		setQuery(state);
+	function submit(e) {
+		e.preventDefault();
+		dispatch({type: 'set_query', query: state});
 		setDirty(false);
 	}
 
@@ -264,11 +310,12 @@ function Searchbar(props) {
 	);
 }
 
+// Table is the top-level component tasked with displaying the cores.
 function Table(props) {
-	// results and total are given by the search results. The length of the
-	// results isn't expected to be equal to total, as the query is run
-	// with a limit parameter and no actual API-based pagination is done.
-	const {results, total} = props;
+	// cores and total are given by the search results. The length of cores
+	// isn't expected to be equal to total, as the query is run with a
+	// limit parameter and no actual API-based pagination is done.
+	const {state: {cores, total}} = React.useContext(ctx);
 
 	// page and selected are used to control what gets displayed on screen,
 	// either by limiting the number of elements or displaying the details
@@ -279,7 +326,7 @@ function Table(props) {
 	// If we don't have anything to display, fallback to a line saying so,
 	// and a nice message. Query strings can be frustrating, and Bleve's
 	// format is especially horendous.
-	if (results.length == 0) {
+	if (cores.length == 0) {
 		const quotes = [
 			":-)",
 			"Seems like good news.",
@@ -297,7 +344,7 @@ function Table(props) {
 	// which case we display them all.
 	const maxPages = 5;
 	const pageSize = 15;
-	const totalPages = Math.ceil(results.length/pageSize);
+	const totalPages = Math.ceil(cores.length/pageSize);
 	var pages;
 	if (totalPages == 1) {
 		pages = [];
@@ -331,7 +378,7 @@ function Table(props) {
 					</tr>
 				</thead>
 				<tbody>
-					{results.slice((page-1)*pageSize, page*pageSize).map(x => {
+					{cores.slice((page-1)*pageSize, page*pageSize).map(x => {
 						return (
 							<React.Fragment key={x.uid}>
 								<tr onClick={() => setSelected(selected == x.uid ? null : x.uid)} active={boolattr(selected == x.uid)}>
@@ -351,9 +398,11 @@ function Table(props) {
 	);
 }
 
+// Core is a view of a core's details.
 function Core(props) {
 	const {core} = props;
 
+	// Format a size in bytes into a human-readable string.
 	function formatSize(bytes) {
 		const threshold = 1000;
 		const units = ['B', 'KB','MB','GB','TB','PB','EB','ZB','YB'];
@@ -422,13 +471,12 @@ function Core(props) {
 // navigator contextual menu, while making internal navigation easy.
 function QueryLink(props) {
 	const {query} = props;
-	const href = `/?q=${encodeQuery({q: query})}`;
+	const {dispatch} = React.useContext(ctx);
 
-	function redirect(event) {
-		event.preventDefault();
-		history.pushState({}, '', href);
-		window.dispatchEvent(new Event('popstate'));
+	function redirect(e) {
+		e.preventDefault();
+		dispatch({type: 'set_query', query: {q: query}});
 	}
 
-	return <a href={href} onClick={redirect}>{props.children}</a>
+	return <a href={`/?q=${encodeQuery({q: query})}`} onClick={redirect}>{props.children}</a>
 }
