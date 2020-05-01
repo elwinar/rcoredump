@@ -1,8 +1,12 @@
 @import url('normalize.css/normalize.css');
 
 // Border box is better for everyone.
-* {
+html {
 	box-sizing: border-box;
+}
+
+*, *:before, *:after {
+	box-sizing: inherit;
 }
 
 body {

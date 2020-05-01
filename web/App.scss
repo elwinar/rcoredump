@@ -69,6 +69,7 @@ input[type="text"], .Radio, button, .Button {
 	border-radius: 0;
 	border-style: solid;
 	border-width: 1px;
+	display: inline-block;
 	padding: 0.5em;
 	text-decoration: none;
 }
@@ -221,16 +222,12 @@ h3 > button {
 
 .Detail {
 	ul {
-		display: flex;
+		list-style: none;
 		padding: 0;
-		list-style-type: none;
+		display: flex;
 
-		li {
-			padding: 0.5em 0;
-		}
-
-		li + li {
-			margin-left: 0.25em;
+		> li + li {
+			padding-left: 0.25em;
 		}
 	}
 

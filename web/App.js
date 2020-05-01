@@ -368,6 +368,7 @@ function Core(props) {
 		return bytes.toFixed(1) + ' ' + units[u];
 	}
 
+	// We use a ref so we can have a simpler copy routine.
 	const downloadAndDebug = React.useRef();
 	function copy() {
 		const selection = window.getSelection();
