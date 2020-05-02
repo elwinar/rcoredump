@@ -124,6 +124,12 @@ function reducer(state, action) {
 				...state,
 				error: action.err,
 			};
+		case 'delete_core':
+			return {
+				...state,
+				cores: state.cores.filter(c => c.uid != action.core),
+				total: state.total-1,
+			};
 		default:
 			throw new Error(`unknown action ${action.type}`);
 	}
@@ -401,6 +407,7 @@ function Table(props) {
 // Core is a view of a core's details.
 function Core(props) {
 	const {core} = props;
+	const {dispatch} = React.useContext(ctx);
 
 	// Format a size in bytes into a human-readable string.
 	function formatSize(bytes) {
@@ -423,14 +430,36 @@ function Core(props) {
 		selection.removeAllRanges();
 	}
 
+	function deleteCore() {
+		if (!window.confirm(`are you sure you want to delete this core?`)) {
+			return;
+		}
+
+		api.deleteCore(core.uid)
+			.then(function(res) {
+				return res.json();
+			})
+			.then(function(res) {
+				if (res.error) {
+					dispatch({type: 'set_error', err: res.error});
+					return;
+				}
+				dispatch({type: 'delete_core', core: core.uid});
+			})
+			.catch(function(err) {
+				dispatch({type: 'set_error', err: err.message});
+			});
+	}
+
 	// The component is a pure component that does nothing else than
 	// extract a bunch of formatting details from the already non-trivial
 	// Table component.
 	return (
 		<React.Fragment>
 			<ul>
-				<li><a className={styles.Button} href={`${document.config.baseURL}/cores/${core.uid}`}>download core ({formatSize(core.size, true)})</a></li>
-				<li><a className={styles.Button} href={`${document.config.baseURL}/executables/${core.executable_hash}`}>download executable ({formatSize(core.executable_size, true)})</a></li>
+				<li><a className={styles.Button} href={api.route(`/cores/${core.uid}`)}>download core ({formatSize(core.size, true)})</a></li>
+				<li><a className={styles.Button} href={api.route(`/executables/${core.executable_hash}`)}>download executable ({formatSize(core.executable_size, true)})</a></li>
+				<li><button onClick={deleteCore}>delete core</button></li>
 			</ul>
 			<h2>executable</h2>
 			<dl>

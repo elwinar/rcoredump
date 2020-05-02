@@ -283,7 +283,10 @@ func (s *service) run(ctx context.Context) {
 	stack.Use(negroni.NewRecovery())
 	stack.Use(negroni.HandlerFunc(s.logRequest))
 	stack.Use(negroni.HandlerFunc(s.delayRequest))
-	stack.Use(cors.Default())
+	stack.Use(cors.New(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodDelete},
+	}))
 	stack.UseHandler(router)
 
 	s.logger.Debug("starting server")

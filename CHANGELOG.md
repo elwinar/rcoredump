@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add a delay parameter to every API endpoint to allow testing under slow conditions
 - Add a special message on the app first load to avoid confusion with empty results
+- "Delete Core" button in the webapp
 ### Changed
 - Assets are not served under the /assets directory
 - Return a JSON response from all API calls (except assets)
