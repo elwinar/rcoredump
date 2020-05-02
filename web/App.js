@@ -190,9 +190,9 @@ export function App() {
 	// always displayed, and the table gives way for fallback display in
 	// case of error or if the first query didn't execute yet.
 	return (
-		<ctx.Provider value={{state, dispatch}}>
+		<ctx.Provider value={{dispatch}}>
 			<Header/>
-			<Searchbar />
+			<Searchbar query={state.query} />
 			{state.error !== null && (
 				<React.Fragment>
 					<h2>Unexpected error</h2>
@@ -200,7 +200,7 @@ export function App() {
 				</React.Fragment>
 			)}
 			{state.cores === null && <p>No result yet.</p>}
-			{state.cores !== null && <Table />}
+			{state.cores !== null && <Table cores={state.cores} total={state.total} />}
 			<Footer/>
 		</ctx.Provider>
 	);
@@ -229,8 +229,10 @@ function Footer() {
 // Searchbar is one of the top-level components, tasked with handling the
 // interface to edit the search query.
 function Searchbar(props) {
+	const {query} = props;
+
 	// Get the query from the state, and the dispatcher to send updates.
-	const {state: {query}, dispatch} = React.useContext(ctx);
+	const {dispatch} = React.useContext(ctx);
 
 	// The local state is initialized to the current value, and will hold
 	// dirty values until the user submit the form.
@@ -321,7 +323,7 @@ function Table(props) {
 	// cores and total are given by the search results. The length of cores
 	// isn't expected to be equal to total, as the query is run with a
 	// limit parameter and no actual API-based pagination is done.
-	const {state: {cores, total}} = React.useContext(ctx);
+	const {cores, total} = props;
 
 	// page and selected are used to control what gets displayed on screen,
 	// either by limiting the number of elements or displaying the details
