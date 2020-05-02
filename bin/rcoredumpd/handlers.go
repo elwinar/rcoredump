@@ -72,7 +72,7 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 
 	s.analysisQueue <- req.coredump
 
-	w.WriteHeader(http.StatusOK)
+	write(w, http.StatusOK, map[string]interface{}{"acknowledged": true})
 }
 
 // analyzeCore handle the requests for re-analyzing a particular core. It
@@ -85,7 +85,7 @@ func (s *service) analyzeCore(w http.ResponseWriter, r *http.Request, p httprout
 	switch err {
 	case nil:
 		s.analysisQueue <- c
-		w.WriteHeader(http.StatusAccepted)
+		write(w, http.StatusAccepted, map[string]interface{}{"acknowledged": true})
 	case ErrNotFound:
 		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
 	default:
@@ -179,7 +179,7 @@ func (s *service) deleteCore(w http.ResponseWriter, r *http.Request, p httproute
 	switch err {
 	case nil:
 		s.cleanupQueue <- c
-		w.WriteHeader(http.StatusOK)
+		write(w, http.StatusAccepted, map[string]interface{}{"acknowledged": true})
 	case ErrNotFound:
 		writeError(w, http.StatusBadRequest, errors.New("unknown core"))
 	default:
@@ -204,7 +204,7 @@ func (s *service) lookupExecutable(w http.ResponseWriter, r *http.Request, p htt
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	write(w, http.StatusOK, map[string]interface{}{"found": true})
 }
 
 // getExecutable handles the requests to get the actual executable.
