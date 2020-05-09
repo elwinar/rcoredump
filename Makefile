@@ -32,7 +32,7 @@ build: web rcoredumpd rcoredump crashers ldd ## Build all targets
 test: ## Run the package tests
 	# We don't use the test shortcut ./... because the crashers would make
 	# the command fail.
-	go test . ./conf ./bin/rcoredump ./bin/rcoredumpd -race
+	go test ./pkg/... ./bin/rcoredump ./bin/rcoredumpd -race
 
 .PHONY: serve
 serve: ## Run the web interface

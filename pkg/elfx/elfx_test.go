@@ -92,7 +92,7 @@ func TestFile_ResolveImportedLibrary(t *testing.T) {
 		"library in lib64": testcase{
 			defaultDirs: []string{"./testdata/$LIB"},
 			input:       "library_in_lib64.so",
-			wantPath:    AbsT(t, "./testdata/lib64/library_in_lib64.so"),
+			wantPath:    "testdata/lib64/library_in_lib64.so",
 			wantOK:      true,
 		},
 		"not found": testcase{
