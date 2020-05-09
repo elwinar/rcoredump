@@ -89,6 +89,12 @@ func TestFile_ResolveImportedLibrary(t *testing.T) {
 			wantPath: AbsT(t, "./testdata/ld_library_path/library_in_ld_path.so"),
 			wantOK:   true,
 		},
+		"library in lib64": testcase{
+			defaultDirs: []string{"./testdata/$LIB"},
+			input:       "library_in_lib64.so",
+			wantPath:    AbsT(t, "./testdata/lib64/library_in_lib64.so"),
+			wantOK:      true,
+		},
 		"not found": testcase{
 			input:    "missing_library.so",
 			wantPath: "missing_library.so",
@@ -116,7 +122,11 @@ func TestFile_ResolveImportedLibrary(t *testing.T) {
 			// we don't do anything with it.
 			file := File{
 				Path: "./testdata/executable",
-				File: nil,
+				File: &elf.File{
+					FileHeader: elf.FileHeader{
+						Class: elf.ELFCLASS64,
+					},
+				},
 			}
 
 			path, ok, err := file.ResolveImportedLibrary(c.input)
