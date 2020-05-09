@@ -26,7 +26,7 @@ install: ## Install the dependencies needed for building the package
 	go get github.com/karalabe/xgo
 
 .PHONY: build
-build: web rcoredumpd rcoredump crashers ## Build all targets
+build: web rcoredumpd rcoredump crashers ldd ## Build all targets
 
 .PHONY: test
 test: ## Run the package tests
@@ -52,6 +52,10 @@ rcoredumpd: ## Build the server
 .PHONY: rcoredump
 rcoredump: ## Build the client
 	go build -o $(build_dir) -ldflags $(ldflags) $(bin_dir)/rcoredump
+
+.PHONY: ldd
+ldd: ## Build the ldd tool
+	go build -o $(build_dir) -ldflags $(ldflags) $(bin_dir)/ldd
 
 .PHONY: crashers
 crashers: ## Build the test crashers
