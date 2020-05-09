@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elwinar/rcoredump"
-	"github.com/elwinar/rcoredump/conf"
+	"github.com/elwinar/rcoredump/pkg/conf"
+	"github.com/elwinar/rcoredump/pkg/rcoredump"
 	"github.com/inconshreveable/log15"
 )
 

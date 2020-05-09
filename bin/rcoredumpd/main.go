@@ -16,9 +16,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/elwinar/rcoredump"
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
-	"github.com/elwinar/rcoredump/conf"
+	"github.com/elwinar/rcoredump/pkg/conf"
+	"github.com/elwinar/rcoredump/pkg/rcoredump"
 
 	"github.com/c2h5oh/datasize"
 	"github.com/inconshreveable/log15"
