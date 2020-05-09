@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	. "github.com/elwinar/rcoredump/pkg/rcoredump"
+
 	"github.com/blevesearch/bleve"
 	structmapper "gopkg.in/anexia-it/go-structmapper.v1"
 )

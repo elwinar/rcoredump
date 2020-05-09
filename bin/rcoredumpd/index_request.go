@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	. "github.com/elwinar/rcoredump/pkg/rcoredump"
+
 	"github.com/inconshreveable/log15"
 	"github.com/rs/xid"
 )

@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	. "github.com/elwinar/rcoredump/pkg/rcoredump"
+
 	"github.com/inconshreveable/log15"
 )
 

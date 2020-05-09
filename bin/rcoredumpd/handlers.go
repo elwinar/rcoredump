@@ -1,15 +1,33 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 
+	. "github.com/elwinar/rcoredump/pkg/rcoredump"
+
 	"github.com/c2h5oh/datasize"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+// write a payload and a status to the ResponseWriter.
+func write(w http.ResponseWriter, status int, payload interface{}) {
+	w.WriteHeader(status)
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		panic(err)
+	}
+	_, _ = w.Write(raw)
+}
+
+// write an error and a status to the ResponseWriter.
+func writeError(w http.ResponseWriter, status int, err error) {
+	write(w, status, Error{Err: err.Error()})
+}
 
 func (s *service) notFound(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, fmt.Errorf(`endpoint %q not found`, r.URL.Path))

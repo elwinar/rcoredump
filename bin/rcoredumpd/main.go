@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -18,7 +17,7 @@ import (
 
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
 	"github.com/elwinar/rcoredump/pkg/conf"
-	"github.com/elwinar/rcoredump/pkg/rcoredump"
+	. "github.com/elwinar/rcoredump/pkg/rcoredump"
 
 	"github.com/c2h5oh/datasize"
 	"github.com/inconshreveable/log15"
@@ -56,6 +55,11 @@ func main() {
 	}()
 
 	s.run(ctx)
+}
+
+// wrap an error using the provided message and arguments.
+func wrap(err error, msg string, args ...interface{}) error {
+	return fmt.Errorf("%s: %w", fmt.Sprintf(msg, args...), err)
 }
 
 type service struct {
@@ -442,31 +446,4 @@ func (s *service) cleanup(core Coredump) {
 		s.logger.Error("analyzing", "core", core.UID, "err", p.err)
 		return
 	}
-}
-
-// Aliases of the shared types, for convenience.
-type (
-	Coredump     = rcoredump.Coredump
-	IndexRequest = rcoredump.IndexRequest
-	SearchResult = rcoredump.SearchResult
-)
-
-// write a payload and a status to the ResponseWriter.
-func write(w http.ResponseWriter, status int, payload interface{}) {
-	w.WriteHeader(status)
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		panic(err)
-	}
-	_, _ = w.Write(raw)
-}
-
-// write an error and a status to the ResponseWriter.
-func writeError(w http.ResponseWriter, status int, err error) {
-	write(w, status, rcoredump.Error{Err: err.Error()})
-}
-
-// wrap an error using the provided message and arguments.
-func wrap(err error, msg string, args ...interface{}) error {
-	return fmt.Errorf("%s: %w", fmt.Sprintf(msg, args...), err)
 }

@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/elwinar/rcoredump/pkg/conf"
-	"github.com/elwinar/rcoredump/pkg/rcoredump"
+	. "github.com/elwinar/rcoredump/pkg/rcoredump"
 	"github.com/inconshreveable/log15"
 )
 
@@ -155,7 +155,7 @@ func (s *service) run(ctx context.Context) {
 		defer w.Close()
 
 		s.logger.Debug("sending header")
-		err := json.NewEncoder(w).Encode(rcoredump.IndexRequest{
+		err := json.NewEncoder(w).Encode(IndexRequest{
 			DumpedAt:          time.Unix(timestamp, 0),
 			ExecutableHash:    hash,
 			ExecutablePath:    executable,
@@ -227,7 +227,7 @@ func (s *service) run(ctx context.Context) {
 
 	s.logger.Debug("received response")
 	if res.StatusCode != http.StatusOK {
-		var err rcoredump.Error
+		var err Error
 		_ = json.NewDecoder(res.Body).Decode(&err)
 		s.logger.Error("unexpected status", "err", err.Err)
 		return
@@ -271,7 +271,7 @@ func (s *service) lookupExecutable(hash string) (bool, error) {
 	case http.StatusNotFound:
 		return false, nil
 	default:
-		var err rcoredump.Error
+		var err Error
 		json.Unmarshal(raw, &err)
 		return false, wrap(errors.New(err.Err), "unexpected response")
 	}

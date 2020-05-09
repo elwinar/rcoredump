@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elwinar/rcoredump/pkg/rcoredump"
+	. "github.com/elwinar/rcoredump/pkg/rcoredump"
 	"github.com/inconshreveable/log15"
 )
 
@@ -76,10 +76,10 @@ func (p *analyzeProcess) detectLanguage() {
 	defer file.Close()
 
 	p.log.Debug("detecting language")
-	p.core.Lang = rcoredump.LangC
+	p.core.Lang = LangC
 	for _, section := range file.Sections {
 		if section.Name == ".go.buildinfo" {
-			p.core.Lang = rcoredump.LangGo
+			p.core.Lang = LangGo
 			break
 		}
 	}
@@ -96,9 +96,9 @@ func (p *analyzeProcess) extractStackTrace() {
 
 	var cmd string
 	switch p.core.Lang {
-	case rcoredump.LangC:
+	case LangC:
 		cmd = fmt.Sprintf("gdb --nx --command %s/gdb.cmd --batch %s %s", p.dataDir, p.executable.Name(), p.file.Name())
-	case rcoredump.LangGo:
+	case LangGo:
 		cmd = fmt.Sprintf("dlv core %s %s --init %s/delve.cmd", p.executable.Name(), p.file.Name(), p.dataDir)
 	default:
 		p.err = wrap(fmt.Errorf(`unhandled lang %s`, p.core.Lang), "extracting stack trace")
