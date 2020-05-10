@@ -24,8 +24,8 @@ var (
 )
 
 // SetLibraryPath parse a list of directories in PATH-like format and updates
-// the LibraryPathDirs variable. This method is run at when the package is
-// initialized with whatever the LD_LIBRARY_PATH contains.
+// the LibraryPathDirs variable. This method is run when the package is
+// initialized with whatever the LD_LIBRARY_PATH env var contains.
 //
 // NOTE The expansion of the $ORIGIN, $PLATFORM and $LIB variables aren't
 // performed here, as the first one can only be done in the context of a file.
@@ -79,6 +79,8 @@ func Open(path string) (File, error) {
 // ResolveImportedLibrary return the path of the given library following the
 // rules of Linux's dynamic linker and a boolean indicating if the designated
 // file exists on the system.
+//
+// NOTE The rules are described in the manual for ld-linux.so.
 //
 // NOTE It currently doesn't check the DT_RUNPATH dynamic section of the
 // binary, mainly because it seems so very infrequently used that I can't be
@@ -143,42 +145,16 @@ func (f File) ResolveImportedLibrary(library string) (path string, ok bool, err 
 // BUG The PLATFORM replacement is inherently wrong, and should probably not be
 // relied upon.
 func (f File) Expand(path string) string {
-	var buf bytes.Buffer
-
-	for i := 0; i < len(path); i++ {
-		if path[i] != '$' {
-			buf.WriteByte(path[i])
-			continue
-		}
-
-		j := i + 1
-		if j >= len(path) {
-			buf.WriteByte(path[i])
-			break
-		}
-
-		if path[j] == '{' {
-			j += 1
-		}
-
-		for ; j < len(path) && isAlphaNum(path[j]); j++ {
-		}
-
-		name := path[i+1 : j]
-		if name[0] == '{' {
-			name = name[1:]
-		}
-
+	return expand(path, func(name string) (value string, ok bool) {
 		switch string(name) {
 		case "ORIGIN":
-			buf.WriteString(filepath.Dir(f.Path))
+			return filepath.Dir(f.Path), true
 
 		case "LIB":
 			if f.Class == elf.ELFCLASS64 {
-				buf.WriteString("lib64")
-			} else {
-				buf.WriteString("lib")
+				return "lib64", true
 			}
+			return "lib", true
 
 		// This is a best attempt at something that is probably
 		// fundamentaly wrong or impossible in the context: the
@@ -189,20 +165,73 @@ func (f File) Expand(path string) string {
 		case "PLATFORM":
 			switch f.Class {
 			case elf.ELFCLASS64:
-				buf.WriteString("x86_64")
+				return "x86_64", true
 			case elf.ELFCLASS32:
-				buf.WriteString("i386")
+				return "i386", true
 			default:
-				buf.WriteString("unhandled_arch")
+				return "unhandled_arch", true
 			}
 
 		default:
-			buf.WriteString(path[i:j])
+			return "", false
+		}
+	})
+}
+
+// expand a string by using a translation function for tokens like $NAME or
+// ${NAME}. The functor takes the name of the token and returns the replacement
+// string and a boolean indicating if the token should be replaced or not.
+func expand(s string, f func(string) (string, bool)) string {
+	var buf bytes.Buffer
+
+	// Read byte by byte. As $, { and } are all ASCII, this is enough.
+	for i := 0; i < len(s); i++ {
+		// Put all non-token chars into the buffer.
+		if s[i] != '$' {
+			buf.WriteByte(s[i])
+			continue
 		}
 
-		if j < len(path) && (path[i+1] != '{' || path[j] != '}') {
-			buf.WriteByte(path[j])
+		// If the $ was the last char, put it into the buffer and
+		// exits.
+		j := i + 1
+		if j >= len(s) {
+			buf.WriteByte(s[i])
+			break
 		}
+
+		// Ignore an eventual opening brace.
+		if s[j] == '{' {
+			j += 1
+		}
+
+		// Continue while we find allowed characters (alphanum and
+		// underscores).
+		for ; j < len(s) && isAlphaNum(s[j]); j++ {
+		}
+
+		// Extract the name of the token, ignoring opening brace.
+		name := s[i+1 : j]
+		if name[0] == '{' {
+			name = name[1:]
+		}
+
+		// Translate the token and either add the translation or the
+		// token into the buffer.
+		value, ok := f(name)
+		if ok {
+			buf.WriteString(value)
+		} else {
+			buf.WriteString(s[i:j])
+		}
+
+		// If we didn't start with a brace, the current char must be
+		// added to the buffer.
+		if j < len(s) && (s[i+1] != '{' || s[j] != '}') {
+			buf.WriteByte(s[j])
+		}
+
+		// Update the pointer and continue.
 		i = j
 		continue
 	}

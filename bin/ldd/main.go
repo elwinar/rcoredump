@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/elwinar/rcoredump/pkg/elfx"
 )
@@ -13,20 +14,20 @@ func main() {
 	if flag.NArg() != 1 {
 		fmt.Println("invalid arguments: expected 1, got", flag.NArg())
 		flag.PrintDefaults()
-		return
+		os.Exit(1)
 	}
 
-	executable := flag.Args()[0]
+	executable := flag.Arg(0)
 	file, err := elfx.Open(executable)
 	if err != nil {
 		fmt.Println("opening binary file:", err)
-		return
+		os.Exit(1)
 	}
 
 	libraries, err := file.ImportedLibraries()
 	if err != nil {
 		fmt.Println("parsing imported libraries:", err)
-		return
+		os.Exit(1)
 	}
 
 	for _, library := range libraries {
