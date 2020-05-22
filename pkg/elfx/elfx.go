@@ -81,11 +81,23 @@ func Open(path string) (File, error) {
 // file exists on the system.
 //
 // NOTE The rules are described in the manual for ld-linux.so.
-//
-// NOTE It currently doesn't check the DT_RUNPATH dynamic section of the
-// binary, mainly because it seems so very infrequently used that I can't be
-// bothered right now.
 func (f File) ResolveImportedLibrary(library string) (path string, ok bool, err error) {
+	// We get the DT_RUNPATH section content, and if empty the deprecated
+	// DT_RPATH one. The first one only applies to the current file's
+	// DT_NEEDED libraries (returned by elf.File.ImportedLibraries()),
+	// while the second should be applied transitively.
+	var runpath, rpath []string
+	runpath, err = f.DynString(elf.DT_RUNPATH)
+	if err != nil {
+		return library, false, err
+	}
+	if len(runpath) == 0 {
+		rpath, err = f.DynString(elf.DT_RPATH)
+		if err != nil {
+			return library, false, err
+		}
+	}
+
 	// We check first if the library is a path, then in the configured and
 	// standard directories.
 	if strings.Contains(library, "/") {
@@ -116,7 +128,9 @@ func (f File) ResolveImportedLibrary(library string) (path string, ok bool, err 
 	}
 
 	for _, dirs := range [][]string{
+		rpath,
 		LibraryPathDirs,
+		runpath,
 		DefaultDirs,
 	} {
 		for _, dir := range dirs {

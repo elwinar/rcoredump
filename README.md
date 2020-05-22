@@ -150,6 +150,24 @@ If non-zero, the `-retention-duration` flag of the server can be used to
 automatically remove coredumps older than the value, eventually removing the
 executable if it is not linked to another coredump.
 
+## Building for development
+
+Building for development requires a few dependencies:
+
+- the Go compiler (for the client and server)
+- the GCC compiler (for the support binaries, like the crashers and tester)
+- the `patchelf` tool to build support files for testing the elfx package
+- the Node environment and NPM (for building the frontend)
+
+Under _Archlinux_, you can install everything with the following command:
+
+```
+sudo pacman -S go gcc patchelf nodejs npm
+```
+
+Then, you can run `make install build test` to fetch dependencies, build all
+binaries and run the testsuite.
+
 ## Need Help?
 
 Feel free to open an issue, or contact me by mail at

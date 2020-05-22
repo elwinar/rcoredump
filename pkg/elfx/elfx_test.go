@@ -51,6 +51,7 @@ func TestSetLibraryPath(t *testing.T) {
 
 func TestFile_ResolveImportedLibrary(t *testing.T) {
 	type testcase struct {
+		executable  string
 		libraryDirs []string
 		defaultDirs []string
 		input       string
@@ -61,12 +62,12 @@ func TestFile_ResolveImportedLibrary(t *testing.T) {
 	for n, c := range map[string]testcase{
 		"relative": testcase{
 			input:    "./relative.so",
-			wantPath: "testdata/relative.so",
+			wantPath: AbsT(t, "testdata/relative.so"),
 			wantOK:   true,
 		},
 		"missing relative": testcase{
 			input:    "./missing_relative.so",
-			wantPath: "testdata/missing_relative.so",
+			wantPath: AbsT(t, "testdata/missing_relative.so"),
 			wantOK:   false,
 		},
 		"absolute": testcase{
@@ -95,6 +96,18 @@ func TestFile_ResolveImportedLibrary(t *testing.T) {
 			wantPath:    "testdata/lib64/library_in_lib64.so",
 			wantOK:      true,
 		},
+		"library in rpath": testcase{
+			executable: "./testdata/executable_rpath",
+			input:      "library_in_rpath.so",
+			wantPath:   "testdata/rpath/library_in_rpath.so",
+			wantOK:     true,
+		},
+		"library in runpath": testcase{
+			executable: "./testdata/executable_runpath",
+			input:      "library_in_runpath.so",
+			wantPath:   "testdata/runpath/library_in_runpath.so",
+			wantOK:     true,
+		},
 		"not found": testcase{
 			input:    "missing_library.so",
 			wantPath: "missing_library.so",
@@ -118,24 +131,22 @@ func TestFile_ResolveImportedLibrary(t *testing.T) {
 			}
 			DefaultDirs = c.defaultDirs
 
-			// We don't bother having a real executable for now, as
-			// we don't do anything with it.
-			file := File{
-				Path: "./testdata/executable",
-				File: &elf.File{
-					FileHeader: elf.FileHeader{
-						Class: elf.ELFCLASS64,
-					},
-				},
+			if c.executable == "" {
+				c.executable = "./testdata/executable"
+			}
+
+			file, err := Open(c.executable)
+			if err != nil {
+				t.Fatalf(`ResolveImportedLibrary(%q, %q): opening executable: %s`, c.executable, c.input, err)
 			}
 
 			path, ok, err := file.ResolveImportedLibrary(c.input)
 			if err != nil {
-				t.Fatalf(`ResolveImportedLibrary(%q): unexpected error: %s`, c.input, err)
+				t.Fatalf(`ResolveImportedLibrary(%q, %q): unexpected error: %s`, c.executable, c.input, err)
 			}
 
 			if path != c.wantPath || ok != c.wantOK {
-				t.Errorf(`ResolveImportedLibrary(%q): wanted %q, %t, got %q, %t`, c.input, c.wantPath, c.wantOK, path, ok)
+				t.Errorf(`ResolveImportedLibrary(%q, %q): wanted %q, %t, got %q, %t`, c.executable, c.input, c.wantPath, c.wantOK, path, ok)
 			}
 		})
 	}

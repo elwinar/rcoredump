@@ -62,6 +62,18 @@ crashers: ## Build the test crashers
 	$(foreach crasher,$(shell ls bin/crashers/*.go), go build -o $(build_dir)/crashers/$(subst .,-,$(notdir $(crasher))) $(crasher);)
 	$(foreach crasher,$(shell ls bin/crashers/*.c), gcc -o $(build_dir)/crashers/$(subst .,-,$(notdir $(crasher))) $(crasher);)
 
+.PHONY: tester
+tester: ## Build the testing binaries
+	gcc -o $(build_dir)/tester bin/tester/main.c
+	# Copy the tester binary in elfx/testdata
+	cp $(build_dir)/tester pkg/elfx/testdata/executable
+	# Copy the tester binary in elfx/testdata, add a runpath tag in the dynamic section
+	cp $(build_dir)/tester pkg/elfx/testdata/executable_runpath
+	patchelf --set-rpath ./testdata/runpath pkg/elfx/testdata/executable_runpath
+	# Copy the tester binary in elfx/testdata, add a rpath tag in the dynamic section
+	cp $(build_dir)/tester pkg/elfx/testdata/executable_rpath
+	patchelf --set-rpath ./testdata/rpath --force-rpath pkg/elfx/testdata/executable_rpath
+
 .PHONY: release
 release: ## Build the release files
 	mkdir -p $(release_dir)
