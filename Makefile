@@ -57,6 +57,10 @@ rcoredump: ## Build the client
 ldd: ## Build the ldd tool
 	go build -o $(build_dir) -ldflags $(ldflags) $(bin_dir)/ldd
 
+.PHONY: aux
+aux: ## Build the aux tool
+	go build -o $(build_dir) -ldflags $(ldflags) $(bin_dir)/aux
+
 .PHONY: crashers
 crashers: ## Build the test crashers
 	$(foreach crasher,$(shell ls bin/crashers/*.go), go build -o $(build_dir)/crashers/$(subst .,-,$(notdir $(crasher))) $(crasher);)
