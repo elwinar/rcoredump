@@ -1,11 +1,17 @@
 package auxv
 
 import (
-	"bytes"
+	"C"
 	"fmt"
 	"io"
 	"unsafe"
 )
+
+// ReadString is a simple wrapper around C.GoString to make it easier to
+// translate from an auxilliary vector's pointer word to a Go string.
+func (w Word) ReadString() string {
+	return C.GoString((*C.char)(unsafe.Pointer(uintptr(w))))
+}
 
 // Type is the key of the auxilliary vector entries. See
 // https://github.com/torvalds/linux/blob/master/include/uapi/linux/auxvec.h
@@ -61,19 +67,4 @@ func (v Vector) ReadFrom(r io.Reader) (err error) {
 	}
 
 	return err
-}
-
-// ReadString takes the address of an in-memory string and read it byte by
-// byte, until a termination character is found (the 0 byte).
-func ReadString(ptr uintptr) string {
-	var buf bytes.Buffer
-	for {
-		var b = *(*byte)(unsafe.Pointer(ptr))
-		if b == 0 {
-			break
-		}
-		buf.WriteByte(b)
-		ptr += 1
-	}
-	return buf.String()
 }

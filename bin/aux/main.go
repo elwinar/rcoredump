@@ -22,6 +22,6 @@ func main() {
 	}
 
 	if val, ok := v[auxv.TypePlatform]; ok {
-		fmt.Println(auxv.ReadString(uintptr(val)))
+		fmt.Println(val.ReadString())
 	}
 }
