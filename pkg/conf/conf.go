@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -124,6 +125,12 @@ func parse(fs *flag.FlagSet, args []string, conf string) error {
 	return nil
 }
 
+// MapFlag returns a flag.Value that will be parsed into the given map.  Raw
+// flag value is split on ';' to separate multiple key-value pairs, and on the
+// first '=' to separate the key from the value. Quoted values aren't handled
+// specifically because there is already a layer of unquoting done either by
+// the command-line or the configuration file parsing. The parsing doesn't
+// support any kind of escaping either for simplicity reasons.
 func MapFlag(m *map[string]string) *mapFlag {
 	if *m == nil {
 		*m = make(map[string]string)
@@ -137,14 +144,32 @@ type mapFlag struct {
 	m map[string]string
 }
 
+// String return the textual representation for this map's content.
 func (f *mapFlag) String() string {
-	return fmt.Sprintf(`%q`, f.m)
+	if len(f.m) == 0 {
+		return ""
+	}
+
+	var keys []string
+	for k, _ := range f.m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var buf strings.Builder
+	buf.WriteString(keys[0])
+	buf.WriteByte('=')
+	buf.WriteString(f.m[keys[0]])
+	for _, k := range keys[1:] {
+		buf.WriteByte(';')
+		buf.WriteString(k)
+		buf.WriteByte('=')
+		buf.WriteString(f.m[k])
+	}
+	return buf.String()
 }
 
-// Set values in the map from the raw string given. It is split on ';' for
-// multiple values, and on '=' to separated the key from the value. Quoted
-// values aren't handled specifically because there is already a layer of
-// unquoting done either by the command-line or the configuration file parsing.
+// Set values in the map from the raw string given.
 func (f *mapFlag) Set(raw string) error {
 	for _, value := range strings.Split(raw, ";") {
 		chunks := strings.SplitN(value, "=", 2)

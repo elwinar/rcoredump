@@ -4,37 +4,39 @@ import (
 	"flag"
 	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestParse(t *testing.T) {
 	type dummy struct {
-		fromDefault  string
-		fromCLI      string
-		fromConf     string
-		priorityCLI  string
-		priorityConf string
-		quotedConf   string
+		FromDefault  string
+		FromCLI      string
+		FromConf     string
+		PriorityCLI  string
+		PriorityConf string
+		QuotedConf   string
 
-		nakedBool       bool
-		normalBool      bool
-		normalFalseBool bool
-		quotedBool      bool
+		NakedBool       bool
+		NormalBool      bool
+		NormalFalseBool bool
+		QuotedBool      bool
 	}
 
 	got := dummy{
-		normalFalseBool: true,
+		NormalFalseBool: true,
 	}
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
-	fs.StringVar(&got.fromDefault, "from-default", "value-default", "value taken from default")
-	fs.StringVar(&got.fromCLI, "from-cli", "value-default", "value taken from CLI")
-	fs.StringVar(&got.fromConf, "from-conf", "value-default", "value taken from conf")
-	fs.StringVar(&got.priorityCLI, "priority-cli", "value-default", "value taken from CLI over others")
-	fs.StringVar(&got.priorityConf, "priority-conf", "value-default", "value taken from conf over default")
-	fs.StringVar(&got.quotedConf, "quoted-conf", "value-default", "value taken from conf and unquoted")
-	fs.BoolVar(&got.nakedBool, "naked-bool", false, "value taken from a naked flag in conf")
-	fs.BoolVar(&got.normalBool, "normal-bool", false, "value taken from conf")
-	fs.BoolVar(&got.normalFalseBool, "normal-false-bool", true, "value taken from conf")
-	fs.BoolVar(&got.quotedBool, "quoted-bool", false, "value taken from conf and unquoted")
+	fs.StringVar(&got.FromDefault, "from-default", "value-default", "value taken from default")
+	fs.StringVar(&got.FromCLI, "from-cli", "value-default", "value taken from CLI")
+	fs.StringVar(&got.FromConf, "from-conf", "value-default", "value taken from conf")
+	fs.StringVar(&got.PriorityCLI, "priority-cli", "value-default", "value taken from CLI over others")
+	fs.StringVar(&got.PriorityConf, "priority-conf", "value-default", "value taken from conf over default")
+	fs.StringVar(&got.QuotedConf, "quoted-conf", "value-default", "value taken from conf and unquoted")
+	fs.BoolVar(&got.NakedBool, "naked-bool", false, "value taken from a naked flag in conf")
+	fs.BoolVar(&got.NormalBool, "normal-bool", false, "value taken from conf")
+	fs.BoolVar(&got.NormalFalseBool, "normal-false-bool", true, "value taken from conf")
+	fs.BoolVar(&got.QuotedBool, "quoted-bool", false, "value taken from conf and unquoted")
 	fs.String("c", "./testdata/test.conf", "configuration file path")
 
 	args := []string{
@@ -48,20 +50,21 @@ func TestParse(t *testing.T) {
 	}
 
 	expected := dummy{
-		fromDefault:     "value-default",
-		fromCLI:         "value-cli",
-		fromConf:        "value-conf",
-		priorityCLI:     "value-cli",
-		priorityConf:    "value-conf",
-		quotedConf:      "value-conf",
-		nakedBool:       true,
-		normalBool:      true,
-		normalFalseBool: false,
-		quotedBool:      true,
+		FromDefault:     "value-default",
+		FromCLI:         "value-cli",
+		FromConf:        "value-conf",
+		PriorityCLI:     "value-cli",
+		PriorityConf:    "value-conf",
+		QuotedConf:      "value-conf",
+		NakedBool:       true,
+		NormalBool:      true,
+		NormalFalseBool: false,
+		QuotedBool:      true,
 	}
 
-	if !reflect.DeepEqual(expected, got) {
-		t.Errorf("incorrect result:\nwanted %#v,\n   got %#v", expected, got)
+	if !cmp.Equal(expected, got) {
+		t.Errorf(`Parse(): unexpected result`)
+		t.Log(cmp.Diff(expected, got))
 	}
 }
 
