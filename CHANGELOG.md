@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Remove
+- Support for Go 1.13.x because of new features used in tests
 
 ## [v0.11.0](https://github.com/elwinar/rcoredump/releases/tag/v0.11.0) - 2020-05-04
 ### Added
