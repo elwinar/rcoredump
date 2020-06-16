@@ -46,7 +46,10 @@ func New() Vector {
 
 // ReadFrom takes an io.Reader and parse the auxilliary vector within it.
 func (v Vector) ReadFrom(r io.Reader) (err error) {
-	for {
+	// There is actually 28 headers defined in
+	// https://github.com/torvalds/linux/blob/v3.19/include/uapi/linux/auxvec.h,
+	// so cutting off at 256 is very ample.
+	for i := 0; i < 256; i++ {
 		var t Type
 		err = t.ReadFrom(r)
 		if err != nil {
