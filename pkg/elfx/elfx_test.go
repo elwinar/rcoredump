@@ -2,9 +2,12 @@ package elfx
 
 import (
 	"debug/elf"
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/elwinar/rcoredump/pkg/auxv"
 )
 
 func TestSetLibraryPath(t *testing.T) {
@@ -164,6 +167,18 @@ func AbsT(t *testing.T, path string) string {
 }
 
 func TestFile_Expand(t *testing.T) {
+	// We retrieve the auxilliary vector by hand here to ensure we can test
+	// with the right value for the platform expansion.
+	err := parseAux()
+	if err != nil {
+		t.Fatalf(`parsing auxilliary vector`)
+	}
+	v, ok := aux[auxv.TypePlatform]
+	if !ok {
+		t.Fatalf(`missing platform entry in auxilliary vector`)
+	}
+	platform := v.ReadString()
+
 	type testcase struct {
 		input string
 		want  string
@@ -190,6 +205,10 @@ func TestFile_Expand(t *testing.T) {
 			input: "foo/${LIB}",
 			want:  "foo/lib64",
 		},
+		"platform": testcase{
+			input: "foo/$PLATFORM",
+			want:  fmt.Sprintf("foo/%s", platform),
+		},
 	} {
 		t.Run(n, func(t *testing.T) {
 			file := File{
@@ -201,7 +220,10 @@ func TestFile_Expand(t *testing.T) {
 				},
 			}
 
-			got := file.Expand(c.input)
+			got, err := file.Expand(c.input)
+			if err != nil {
+				t.Fatalf(`File.Expand(%q): unexpected error %q`, c.input, err)
+			}
 			if got != c.want {
 				t.Errorf(`File.Expand(%q): wanted %q, got %q`, c.input, c.want, got)
 			}
