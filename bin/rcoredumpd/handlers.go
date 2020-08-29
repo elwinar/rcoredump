@@ -72,6 +72,9 @@ func (s *service) indexCore(w http.ResponseWriter, r *http.Request, _ httprouter
 	} else {
 		req.computeExecutableSize()
 	}
+	for i := range req.req.Links {
+		req.readLink(i)
+	}
 	req.indexCore()
 	req.close()
 

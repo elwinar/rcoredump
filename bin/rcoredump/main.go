@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/elwinar/rcoredump/pkg/conf"
+	"github.com/elwinar/rcoredump/pkg/elfx"
 	. "github.com/elwinar/rcoredump/pkg/rcoredump"
 	"github.com/inconshreveable/log15"
 )
@@ -138,6 +139,23 @@ func (s *service) run(ctx context.Context) {
 		sendExecutable = !found
 	}
 
+	// If we decided to send the executable, we want to resolve its
+	// imported libraries so we can send them alongside the executable
+	// itself.
+	// NOTE We could re-use the file opened when hashing, but for now
+	// it's simpler and more readable not to.
+	// TODO We don't stop in case of error, but we should have a way to
+	// communicate that the links are missing when looking up the
+	// executable so we can send them again.
+	var links []Link
+	if sendExecutable {
+		s.logger.Debug("resolving imported libraries")
+		links, err = s.resolveLinks(executable)
+		if err != nil {
+			s.logger.Error("resolving imported libraries", "err", err)
+		}
+	}
+
 	// We will use chunked transfer encoding to avoid keeping the whole
 	// dump in memory more than necessary. We will do this by giving the
 	// request a pipe as body, so it will read from it and send the content
@@ -163,6 +181,7 @@ func (s *service) run(ctx context.Context) {
 			Hostname:          hostname,
 			IncludeExecutable: sendExecutable,
 			Metadata:          s.metadata,
+			Links:             links,
 		})
 		if err != nil {
 			s.logger.Error("sending header", "err", err)
@@ -210,6 +229,30 @@ func (s *service) run(ctx context.Context) {
 		if err != nil {
 			s.logger.Error("closing executable stream", "err", err)
 			return
+		}
+
+		// Send the links.
+		for _, link := range links {
+			// Except if there was an error finding it or it wasn't
+			// found on the system.
+			if len(link.Error) != 0 || !link.Found {
+				continue
+			}
+
+			w.Reset(pw)
+
+			s.logger.Debug("sending link")
+			err = s.sendFile(w, link.Path)
+			if err != nil {
+				s.logger.Error("sending link", "link", link, "err", err)
+				return
+			}
+
+			err = w.Close()
+			if err != nil {
+				s.logger.Error("closing link stream", "link", link, "err", err)
+				return
+			}
 		}
 	}()
 
@@ -278,6 +321,36 @@ func (s *service) lookupExecutable(hash string) (bool, error) {
 		}
 		return false, wrap(errors.New(err.Err), "unexpected response")
 	}
+}
+
+func (s *service) resolveLinks(executable string) ([]Link, error) {
+	f, err := elfx.Open(executable)
+	if err != nil {
+		return nil, wrap(err, "opening executable")
+	}
+	defer f.Close()
+
+	libraries, err := f.ImportedLibraries()
+	if err != nil {
+		return nil, wrap(err, "parsing imported libraries")
+	}
+
+	links := make([]Link, 0, len(libraries))
+	for _, library := range libraries {
+		path, ok, err := f.ResolveImportedLibrary(library)
+		var errMsg string
+		if err != nil {
+			errMsg = err.Error()
+		}
+		links = append(links, Link{
+			Name:  library,
+			Path:  path,
+			Found: ok,
+			Error: errMsg,
+		})
+	}
+
+	return links, nil
 }
 
 func (s *service) sendFile(w io.Writer, path string) error {

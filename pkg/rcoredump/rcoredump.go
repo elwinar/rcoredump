@@ -20,6 +20,18 @@ type IndexRequest struct {
 	Metadata map[string]string `json:"metadata"`
 	// Version of the forwarder that sent the coredump.
 	ForwarderVersion string `json:"forwarder_version"`
+	// Links of the executable, sent in order after the core and dump.
+	Links []Link `json:"links,omitempty"`
+}
+
+// Link represent a dynamically linked library sent by the forwarder, with
+// informations like its name, the path it was found on, and any relevant error
+// during lookup.
+type Link struct {
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	Found bool   `json:"found"`
+	Error string `json:"error"`
 }
 
 // SearchResult as returned by the server.
@@ -39,6 +51,7 @@ type Coredump struct {
 	ForwarderVersion string            `json:"forwarder_version"`
 	Hostname         string            `json:"hostname"`
 	IndexerVersion   string            `json:"indexer_version"`
+	Links            []Link            `json:"link"`
 	Metadata         map[string]string `json:"metadata"`
 	Size             int64             `json:"size"`
 	UID              string            `json:"uid"`

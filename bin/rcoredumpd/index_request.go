@@ -88,6 +88,7 @@ func (r *indexRequest) read() {
 	r.coredump.ForwarderVersion = r.req.ForwarderVersion
 	r.coredump.Hostname = r.req.Hostname
 	r.coredump.Metadata = r.req.Metadata
+	r.coredump.Links = r.req.Links
 }
 
 func (r *indexRequest) readCore() {
@@ -116,6 +117,25 @@ func (r *indexRequest) readExecutable() {
 	}
 
 	r.coredump.ExecutableSize, r.err = r.store.StoreExecutable(r.req.ExecutableHash, r.reader)
+}
+
+func (r *indexRequest) readLink(i int) {
+	if r.err != nil {
+		return
+	}
+
+	link := r.req.Links[i]
+	if len(link.Error) != 0 || !link.Found {
+		return
+	}
+
+	err := r.prepareReader()
+	if err != nil {
+		r.err = wrap(err, "preparing gzip reader")
+		return
+	}
+
+	_, r.err = r.store.StoreLink(r.req.ExecutableHash, link.Name, r.reader)
 }
 
 // computeExecutableSize is used if the executable wasn't sent by the forwarder
