@@ -3,7 +3,6 @@ package main
 import (
 	"debug/elf"
 	"fmt"
-	"html/template"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,12 +13,11 @@ import (
 )
 
 type analyzeProcess struct {
-	analyzers map[string]*template.Template
-	dataDir   string
-	index     Index
-	log       log15.Logger
-	store     Store
-	core      Coredump
+	dataDir string
+	index   Index
+	log     log15.Logger
+	store   Store
+	core    Coredump
 
 	err        error
 	file       *os.File

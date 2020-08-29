@@ -38,7 +38,10 @@ func (s *service) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) root(rw http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	rw.Write([]byte(s.rootHTML))
+	_, err := rw.Write([]byte(s.rootHTML))
+	if err != nil {
+		s.logger.Error("writing response", "err", err)
+	}
 }
 
 func (s *service) about(rw http.ResponseWriter, r *http.Request, _ httprouter.Params) {

@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/elwinar/rcoredump/pkg/conf"
@@ -40,7 +41,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		signals := make(chan os.Signal, 2)
-		signal.Notify(signals, os.Interrupt, os.Kill)
+		signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 		<-signals
 		cancel()
 	}()
@@ -49,14 +50,13 @@ func main() {
 }
 
 type service struct {
-	dest           string
-	src            string
-	sendExecutable bool
-	syslog         bool
-	filelog        string
-	printVersion   bool
-	args           []string
-	metadata       map[string]string
+	dest         string
+	src          string
+	syslog       bool
+	filelog      string
+	printVersion bool
+	args         []string
+	metadata     map[string]string
 
 	logger log15.Logger
 }
@@ -272,7 +272,10 @@ func (s *service) lookupExecutable(hash string) (bool, error) {
 		return false, nil
 	default:
 		var err Error
-		json.Unmarshal(raw, &err)
+		jsonErr := json.Unmarshal(raw, &err)
+		if jsonErr != nil {
+			return false, wrap(jsonErr, "reading unexpected response")
+		}
 		return false, wrap(errors.New(err.Err), "unexpected response")
 	}
 }

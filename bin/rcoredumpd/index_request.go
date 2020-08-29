@@ -44,7 +44,9 @@ func (r *indexRequest) close() {
 	if r.reader != nil {
 		r.reader.Close()
 	}
-	io.Copy(ioutil.Discard, r.r.Body)
+
+	_, _ = io.Copy(ioutil.Discard, r.r.Body)
+
 	r.r.Body.Close()
 }
 

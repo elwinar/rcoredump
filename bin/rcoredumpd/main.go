@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	_ "github.com/elwinar/rcoredump/bin/rcoredumpd/internal"
@@ -49,7 +50,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		signals := make(chan os.Signal, 2)
-		signal.Notify(signals, os.Interrupt, os.Kill)
+		signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 		<-signals
 		cancel()
 	}()
@@ -300,10 +301,15 @@ func (s *service) run(ctx context.Context) {
 	}
 	go func() {
 		<-ctx.Done()
-		ctx, _ := context.WithTimeout(ctx, 1*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+		defer cancel()
 		close(s.analysisQueue)
 		close(s.cleanupQueue)
-		server.Shutdown(ctx)
+		err := server.Shutdown(ctx)
+		if err != nil {
+			s.logger.Error("shuting server down", "err", err)
+			return
+		}
 	}()
 	err := server.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
