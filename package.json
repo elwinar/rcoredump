@@ -3,17 +3,17 @@
   "version": "1.0.0",
   "description": "_rcoredump_ is meant to be a toolbox for aggregating, indexing, and searching core dumps. Think ELK for core dumps.",
   "dependencies": {
-    "dayjs": "^1.8.26",
+    "dayjs": "^1.8.34",
     "normalize.css": "^8.0.1",
     "react": "^16.13.1",
     "react-dom": "^16.13.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.9.6",
-    "@babel/preset-react": "^7.9.4",
-    "autoprefixer": "^9.7.6",
+    "@babel/core": "^7.11.4",
+    "@babel/preset-react": "^7.10.4",
+    "autoprefixer": "^9.8.6",
     "parcel-bundler": "^1.12.4",
     "postcss-modules": "^1.5.0",
-    "sass": "^1.26.5"
+    "sass": "^1.26.10"
   }
 }
