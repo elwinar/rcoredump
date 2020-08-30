@@ -336,7 +336,20 @@ func (s *service) resolveLinks(executable string) ([]Link, error) {
 	}
 
 	links := make([]Link, 0, len(libraries))
+
+	// Maintain a map of the known libraries, so the recursive search for
+	// parent libraries doesn't do extra unnecessary work.
+	known := make(map[string]struct{})
 	for _, library := range libraries {
+		known[library] = struct{}{}
+	}
+
+	// For each library of the stack, locate it and add it to the links,
+	// then find its parents and add them to the stack.
+	for len(libraries) != 0 {
+		var library string
+		library, libraries = libraries[0], libraries[1:]
+
 		path, ok, err := f.ResolveImportedLibrary(library)
 		var errMsg string
 		if err != nil {
@@ -348,6 +361,31 @@ func (s *service) resolveLinks(executable string) ([]Link, error) {
 			Found: ok,
 			Error: errMsg,
 		})
+
+		// If there was an error while locating the library, don't try
+		// to find its parents.
+		if !ok || err != nil {
+			continue
+		}
+
+		libf, err := elfx.Open(path)
+		if err != nil {
+			return nil, wrap(err, "opening shared library %s (%q)", library, path)
+		}
+
+		parents, err := libf.ImportedLibraries()
+		if err != nil {
+			return nil, wrap(err, "parsing parent imported libraries for %s (%q)", library, path)
+		}
+
+		for _, parent := range parents {
+			if _, ok := known[parent]; ok {
+				continue
+			}
+
+			libraries = append(libraries, parent)
+			known[parent] = struct{}{}
+		}
 	}
 
 	return links, nil
