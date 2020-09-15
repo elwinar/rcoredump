@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "auxv",
+    srcs = [
+        "auxv.go",
+        "auxv_amd64.go",
+    ],
+    cgo = True,
+    importpath = "github.com/elwinar/rcoredump/pkg/auxv",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "auxv_test",
+    srcs = ["auxv_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":auxv"],
+    deps = [
+        "//pkg/testingx",
+        "@com_github_google_go_cmp//cmp:go_default_library",
+    ],
+)

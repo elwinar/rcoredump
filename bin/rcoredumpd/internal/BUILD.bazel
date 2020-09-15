@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "internal",
+    srcs = ["statik.go"],
+    importpath = "github.com/elwinar/rcoredump/bin/rcoredumpd/internal",
+    visibility = ["//bin/rcoredumpd:__subpackages__"],
+    deps = ["@com_github_rakyll_statik//fs:go_default_library"],
+)

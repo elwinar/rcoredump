@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "elfx",
+    srcs = [
+        "elfx.go",
+        "elfx_amd64.go",
+    ],
+    importpath = "github.com/elwinar/rcoredump/pkg/elfx",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "elfx_test",
+    srcs = ["elfx_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":elfx"],
+)
