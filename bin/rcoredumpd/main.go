@@ -23,6 +23,7 @@ import (
 	"github.com/c2h5oh/datasize"
 	"github.com/inconshreveable/log15"
 	"github.com/julienschmidt/httprouter"
+	"github.com/phyber/negroni-gzip/gzip"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rakyll/statik/fs"
@@ -292,6 +293,7 @@ func (s *service) run(ctx context.Context) {
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodDelete},
 	}))
+	stack.Use(gzip.Gzip(gzip.DefaultCompression))
 	stack.UseHandler(router)
 
 	s.logger.Debug("starting server")

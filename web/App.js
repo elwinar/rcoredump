@@ -482,8 +482,8 @@ function Core(props) {
 			</dl>
 			<h3>download & debug <button onClick={copy}>copy</button></h3>
 			<pre ref={downloadAndDebug}>
-				curl -s "{api.route(`/cores/${core.uid}`)}" --output {core.executable}.{core.uid}<br/>
-				curl -s "{api.route(`/executables/${core.executable_hash}`)}" --output {core.executable}<br/>
+				curl -s --compressed "{api.route(`/cores/${core.uid}`)}" --output {core.executable}.{core.uid}<br/>
+				curl -s --compressed "{api.route(`/executables/${core.executable_hash}`)}" --output {core.executable}<br/>
 				{core.lang == "C" && `gdb ${core.executable} ${core.executable}.${core.uid}`}
 				{core.lang == "Go" && `dlv core ${core.executable} ${core.executable}.${core.uid}`}
 			</pre>
