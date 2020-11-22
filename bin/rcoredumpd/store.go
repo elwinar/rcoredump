@@ -105,7 +105,7 @@ func (s FileStore) ExecutableExists(hash string) (exists bool, err error) {
 }
 
 func (s FileStore) Link(executable, name string) (*os.File, error) {
-	return os.Open(filepath.Join(s.root, "links", executable, name)
+	return os.Open(filepath.Join(s.root, "links", executable, name))
 }
 
 func (s FileStore) StoreLink(executable, name string, src io.Reader) (int64, error) {

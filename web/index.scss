@@ -1,22 +1,79 @@
-@import url('normalize.css/normalize.css');
+@import url("normalize.css/normalize.css");
+@import "./colors.scss";
+@import "./mixins.scss";
 
 // Border box is better for everyone.
 html {
-	box-sizing: border-box;
+  box-sizing: border-box;
 }
 
-*, *:before, *:after {
-	box-sizing: inherit;
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
 }
 
 body {
-	// Take a reasonable space on screen, while ensuring we always have a
-	// little margin on the sides for readability.
-	width: calc(100% - 5em);
-	max-width: 960px;
-	margin: 0 auto;
-	padding: 2em 1em;
-	// Ensure we always have the scrollbar visible to avoid width-jumps.
-	overflow-y: scroll;
+  // Take a reasonable space on screen, while ensuring we always have a
+  // little margin on the sides for readability.
+  width: calc(100% - 5em);
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2em 1em;
+  // Ensure we always have the scrollbar visible to avoid width-jumps.
+  overflow-y: scroll;
+  background: $background;
+  font-family: sans-serif;
+  color: $gray-dark;
 }
 
+h1,
+h2 {
+  color: $primary;
+  font-weight: 500;
+}
+
+h1 {
+  font-size: 2em;
+}
+
+h2 {
+  font-size: 1.4em;
+}
+
+h3 {
+  font-weight: 500;
+}
+
+a {
+  color: inherit;
+  text-decoration: underline;
+
+  &:hover {
+    color: $primary;
+  }
+}
+
+input,
+button {
+  &:focus {
+    outline: 0 !important;
+  }
+}
+
+input[type="text"],
+button {
+  @include button;
+}
+
+input[type="text"] {
+  @include button-focusable;
+}
+
+button {
+  cursor: pointer;
+}
+
+h3 > button {
+  font-size: 1rem;
+}

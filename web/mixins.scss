@@ -1,0 +1,23 @@
+@import "./colors.scss";
+
+@mixin button {
+  background: $background-light;
+  border-color: $gray;
+  border-radius: 0;
+  border-style: solid;
+  border-width: 1px;
+  display: inline-block;
+  padding: 0.5em;
+  text-decoration: none;
+}
+
+@mixin button-focusable {
+  &[active],
+  &:focus {
+    border-color: $primary;
+  }
+
+  &[dirty] {
+    border-color: $secondary;
+  }
+}

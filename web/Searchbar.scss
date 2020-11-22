@@ -1,0 +1,63 @@
+@import "./colors.scss";
+@import "./mixins.scss";
+
+.Searchbar {
+  div {
+    display: flex;
+    justify-content: flex-end;
+
+    fieldset {
+      display: inline-block;
+      border: 0;
+      padding: 0;
+      margin: 1em 0;
+
+      & + fieldset {
+        margin-left: 0.25em;
+      }
+    }
+
+    input[name="q"] {
+      flex: 1;
+    }
+
+    button {
+      border-left-width: 0px;
+    }
+
+    p {
+      margin-top: 0.5em;
+      font-size: 0.8em;
+    }
+  }
+}
+
+.Radio {
+  @include button;
+  @include button-focusable;
+
+  cursor: pointer;
+  border-width: 1px 0;
+
+  > input {
+    display: none;
+  }
+
+  &:first-child,
+  &:not([active]) + & {
+    border-left-width: 1px;
+  }
+
+  &:last-child {
+    border-right-width: 1px;
+  }
+
+  &[active] {
+    border-left-width: 1px;
+    border-right-width: 1px;
+  }
+}
+
+:not(.Radio) + .Radio {
+  border-left-width: 1px;
+}
