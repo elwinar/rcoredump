@@ -15,6 +15,7 @@ type Store interface {
 	StoreExecutable(hash string, src io.Reader) (int64, error)
 	DeleteExecutable(hash string) error
 	ExecutableExists(hash string) (bool, error)
+	Link(executable, path string) (*os.File, error)
 	StoreLink(executable, path string, src io.Reader) (int64, error)
 }
 
@@ -101,6 +102,10 @@ func (s FileStore) ExecutableExists(hash string) (exists bool, err error) {
 		err = nil
 	}
 	return exists, err
+}
+
+func (s FileStore) Link(executable, name string) (*os.File, error) {
+	return os.Open(filepath.Join(s.root, "links", executable, name)
 }
 
 func (s FileStore) StoreLink(executable, name string, src io.Reader) (int64, error) {
