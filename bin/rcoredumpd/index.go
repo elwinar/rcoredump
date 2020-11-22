@@ -12,6 +12,7 @@ import (
 	structmapper "gopkg.in/anexia-it/go-structmapper.v1"
 )
 
+// An Index is a full-text search engine for coredumps.
 type Index interface {
 	Index(Coredump) error
 	Find(string) (Coredump, error)
@@ -20,9 +21,12 @@ type Index interface {
 }
 
 var (
+	// ErrNotFound is returned when the index can't find the requested
+	// coredump.
 	ErrNotFound = errors.New(`not found`)
 )
 
+// BleveIndex uses the Bleve engine for searching coredumps.
 type BleveIndex struct {
 	// the index is the actual struct we are interfacing with.
 	index bleve.Index
@@ -30,7 +34,7 @@ type BleveIndex struct {
 	// the mapper is used to convert between the Coredump struct itself and
 	// the map[string]interface{} used internally by the bleve index. The
 	// issue is that the types of fields allowed by bleve are quite
-	// limited, for example Metadata, so we need to fake it using meta.x
+	// limited, so we need to fake fields like Metadata using meta.x
 	// fields. In addition, this allows searching on those fields, which
 	// isn't possible by default.
 	mapper *structmapper.Mapper
@@ -40,6 +44,8 @@ type BleveIndex struct {
 // interface.
 var _ Index = new(BleveIndex)
 
+// NewBleveIndex load an Index using the Bleve engine. The index is created and
+// its mapping initialized if needed.
 func NewBleveIndex(path string) (Index, error) {
 	_, err := os.Stat(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
