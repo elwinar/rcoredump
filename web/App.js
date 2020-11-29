@@ -74,12 +74,9 @@ function App() {
     [query]
   );
 
-  const queryHandler = React.useCallback(
-    function queryHandler(q) {
-      setQuery(q);
-    },
-    [setQuery]
-  );
+  const queryHandler = React.useCallback(function queryHandler(q) {
+    setQuery(q);
+  }, []);
 
   const deleteCoreHandler = React.useCallback(
     function deleteCoreHandler(core) {
@@ -94,14 +91,14 @@ function App() {
             setError(res.error);
             return;
           }
-          setCores([...cores].filter((c) => c.uid != core.uid));
+          setCores(cores.filter((c) => c.uid != core.uid));
           setTotal(total - 1);
         })
         .catch((res) => {
           setError(err.message);
         });
     },
-    [setError, cores, setCores, total, setTotal]
+    [cores, total]
   );
 
   // Finally, render the component itself. The searchbar is always displayed,
