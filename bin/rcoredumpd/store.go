@@ -15,6 +15,8 @@ type Store interface {
 	StoreExecutable(hash string, src io.Reader) (int64, error)
 	DeleteExecutable(hash string) error
 	ExecutableExists(hash string) (bool, error)
+	Link(executable, path string) (*os.File, error)
+	StoreLink(executable, path string, src io.Reader) (int64, error)
 }
 
 type FileStore struct {
@@ -33,8 +35,9 @@ func NewFileStore(root string) (Store, error) {
 func (s FileStore) init() error {
 	for _, dir := range []string{
 		s.root,
-		filepath.Join(s.root, "executables/"),
-		filepath.Join(s.root, "cores/"),
+		filepath.Join(s.root, "executables"),
+		filepath.Join(s.root, "cores"),
+		filepath.Join(s.root, "links"),
 	} {
 		err := os.Mkdir(dir, os.ModeDir|0774)
 		if err != nil && !errors.Is(err, os.ErrExist) {
@@ -99,4 +102,28 @@ func (s FileStore) ExecutableExists(hash string) (exists bool, err error) {
 		err = nil
 	}
 	return exists, err
+}
+
+func (s FileStore) Link(executable, name string) (*os.File, error) {
+	return os.Open(filepath.Join(s.root, "links", executable, name))
+}
+
+func (s FileStore) StoreLink(executable, name string, src io.Reader) (int64, error) {
+	err := os.Mkdir(filepath.Join(s.root, "links", executable), os.ModeDir|0774)
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		return 0, wrap(err, "creating link directory")
+	}
+
+	f, err := os.Create(filepath.Join(s.root, "links", executable, name))
+	if err != nil {
+		return 0, wrap(err, "creating link file")
+	}
+	defer f.Close()
+
+	written, err := io.Copy(f, src)
+	if err != nil {
+		return 0, wrap(err, "reading link")
+	}
+
+	return written, nil
 }

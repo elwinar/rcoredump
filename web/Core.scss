@@ -1,0 +1,45 @@
+@import "./colors.scss";
+@import "./mixins.scss";
+
+.Core {
+  ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+
+    > li + li {
+      padding-left: 0.25em;
+    }
+  }
+
+  h2 {
+    margin-bottom: 0;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: 1fr 3fr;
+    margin-top: 0.5em;
+
+    dt {
+      color: $gray;
+    }
+
+    dt,
+    dd {
+      margin-bottom: 0.25em;
+    }
+  }
+
+  pre {
+    background: $background-light;
+    border: 1px solid $gray-light;
+    margin: -0.5em -0.5em 0.5em;
+    padding: 0.5em;
+    white-space: pre-wrap;
+  }
+}
+
+.Button {
+  @include button;
+}

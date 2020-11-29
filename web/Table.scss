@@ -1,0 +1,74 @@
+@import "./colors.scss";
+
+.Table {
+  border-bottom: 1px solid $gray-light;
+  border-collapse: collapse;
+  text-align: left;
+  width: 100%;
+
+  th {
+    font-weight: normal;
+
+    &:nth-child(1) {
+      width: 2em;
+    }
+
+    &:nth-child(2) {
+      width: 22ch;
+    }
+
+    &:nth-child(5) {
+      width: 7ch;
+    }
+  }
+
+  th,
+  td {
+    padding: 0.8em;
+  }
+
+  tbody {
+    tr {
+      border-top: 1px solid $gray-light;
+
+      &[active] > td:first-child {
+        transform: rotate(90deg);
+      }
+
+      &[active],
+      &:hover:not(.Detail) {
+        background: $background-light;
+      }
+
+      &:not(.Detail) {
+        cursor: pointer;
+      }
+    }
+  }
+}
+
+.NoResult {
+  padding: 0 0.5em;
+}
+
+.Pagination {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  height: 2em;
+  list-style-type: none;
+
+  li {
+    display: inline-block;
+    padding: 0.5em;
+    cursor: pointer;
+  }
+
+  li[active] {
+    text-decoration: underline;
+  }
+
+  li:hover {
+    color: $primary;
+  }
+}

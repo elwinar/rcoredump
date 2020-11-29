@@ -84,3 +84,11 @@ release: ## Build the release files
 	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredumpd
 	xgo --dest=$(release_dir) --targets=$(targets) --ldflags=$(ldflags) $(pkg)/bin/rcoredump
 
+.PHONY: clean
+clean: ## Remove all artifacts and untracked files
+	rm -rf $(build_dir)
+	rm -rf $(release_dir)
+	rm -rf .cache
+	rm -rf node_modules
+	git clean -df
+

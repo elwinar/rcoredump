@@ -4,9 +4,14 @@ import (
 	"bytes"
 	"debug/elf"
 	"errors"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+
+	"github.com/elwinar/rcoredump/pkg/auxv"
 )
 
 func init() {
@@ -134,7 +139,12 @@ func (f File) ResolveImportedLibrary(library string) (path string, ok bool, err 
 		DefaultDirs,
 	} {
 		for _, dir := range dirs {
-			path = filepath.Join(f.Expand(dir), library)
+			dir, err = f.Expand(dir)
+			if err != nil {
+				return library, false, fmt.Errorf(`expanding path for library %q: %w`, library, err)
+			}
+
+			path = filepath.Join(dir, library)
 			_, err = os.Stat(path)
 			if errors.Is(err, os.ErrNotExist) {
 				continue
@@ -155,47 +165,47 @@ func (f File) ResolveImportedLibrary(library string) (path string, ok bool, err 
 // NOTE This intentionally doesn't use a more elaborate function like os.Expand
 // or github.com/mvdan/sh because both of those have much more features than
 // necessary, and variable expansion is a very sensible subject.
-//
-// BUG The PLATFORM replacement is inherently wrong, and should probably not be
-// relied upon.
-func (f File) Expand(path string) string {
-	return expand(path, func(name string) (value string, ok bool) {
+func (f File) Expand(path string) (string, error) {
+	return expand(path, func(name string) (string, bool, error) {
 		switch string(name) {
 		case "ORIGIN":
-			return filepath.Dir(f.Path), true
+			return filepath.Dir(f.Path), true, nil
 
 		case "LIB":
 			if f.Class == elf.ELFCLASS64 {
-				return "lib64", true
+				return "lib64", true, nil
 			}
-			return "lib", true
+			return "lib", true, nil
 
-		// This is a best attempt at something that is probably
-		// fundamentaly wrong or impossible in the context: the
-		// platform string is given by the kernel to the program in the
-		// auxilliary vector (see getauxval(3)), which we can't get
-		// afterwards. Something more complex could probably be done,
-		// but right now this will do.
+		// Here we assume that the platform value for the running
+		// binary and the openned file are the same. This is not
+		// necessarily true, but it will do for now.
+		//
+		// TODO Check if the auxilliary vector can be retrieved from
+		// the file itself.
 		case "PLATFORM":
-			switch f.Class {
-			case elf.ELFCLASS64:
-				return "x86_64", true
-			case elf.ELFCLASS32:
-				return "i386", true
-			default:
-				return "unhandled_arch", true
+			err := parseAux()
+			if err != nil {
+				return "", false, fmt.Errorf(`parsing auxilliary vector: %w`, err)
 			}
+
+			val, ok := aux[auxv.TypePlatform]
+			if !ok {
+				return "", false, fmt.Errorf(`missing platform entry in auxilliary vector`)
+			}
+
+			return val.ReadString(), true, nil
 
 		default:
-			return "", false
+			return "", false, nil
 		}
 	})
 }
 
 // expand a string by using a translation function for tokens like $NAME or
 // ${NAME}. The functor takes the name of the token and returns the replacement
-// string and a boolean indicating if the token should be replaced or not.
-func expand(s string, f func(string) (string, bool)) string {
+// string and a boolean indicating if the token should not be replaced.
+func expand(s string, f func(string) (string, bool, error)) (string, error) {
 	var buf bytes.Buffer
 
 	// Read byte by byte. As $, { and } are all ASCII, this is enough.
@@ -232,7 +242,11 @@ func expand(s string, f func(string) (string, bool)) string {
 
 		// Translate the token and either add the translation or the
 		// token into the buffer.
-		value, ok := f(name)
+		value, ok, err := f(name)
+		if err != nil {
+			return "", fmt.Errorf(`replacing token %q: %w`, name, err)
+		}
+
 		if ok {
 			buf.WriteString(value)
 		} else {
@@ -250,10 +264,41 @@ func expand(s string, f func(string) (string, bool)) string {
 		continue
 	}
 
-	return buf.String()
+	return buf.String(), nil
 }
 
 // isAlphaNum reports whether the byte is an ASCII letter, number, or underscore
 func isAlphaNum(c uint8) bool {
 	return c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z'
+}
+
+var (
+	// Aux is the auxilliary vector parsed at runtime. It is initialized
+	// when resolving external libraries.
+	aux auxv.Vector
+	// auxvOnce is used to ensure that the parsing of the auxilliary vector
+	// is done only once independently of what required it.
+	auxOnce sync.Once
+)
+
+// parseAuxv initialize the auxilliary vector and return the eventual error. It
+// must be called before using auxv, and is a no-op if already called once.
+func parseAux() error {
+	var err error
+	auxOnce.Do(func() {
+		var f io.Reader
+		f, err = os.Open("/proc/self/auxv")
+		if err != nil {
+			err = fmt.Errorf(`opening auxilliary vector: %w`, err)
+			return
+		}
+
+		aux = auxv.New()
+		err = aux.ReadFrom(f)
+		if err != nil {
+			err = fmt.Errorf(`reading auxilliary vector: %w`, err)
+			return
+		}
+	})
+	return err
 }

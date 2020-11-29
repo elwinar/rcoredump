@@ -1,0 +1,11 @@
+@import "./colors.scss";
+
+.Header {
+  h1 {
+    margin-top: 0;
+  }
+
+  h1 > sup {
+    color: $gray;
+  }
+}
