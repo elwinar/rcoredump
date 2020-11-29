@@ -1,33 +1,28 @@
 import React from "react";
 import styles from "./App.scss";
 import api from "./api.js";
-import Header from "./Header.js";
-import Footer from "./Footer.js";
 import Searchbar from "./Searchbar.js";
 import Table from "./Table.js";
 
+// Find the query encoded in the URL. If we don't have any, use the default value.
+const raw = new URLSearchParams(window.location.search).get("q");
+const initialQuery =
+  raw === null
+    ? {
+        q: "*",
+        sort: "dumped_at",
+        order: "desc",
+        size: "150",
+      }
+    : api.decodeQuery(raw);
+
 // App is the main component, and is mainly concerned with high-level features
 // like state management and top-level components.
-export default function App() {
+function App() {
   const [cores, setCores] = React.useState([]);
   const [error, setError] = React.useState(null);
-  const [query, setQuery] = React.useState({
-    q: "*",
-    sort: "dumped_at",
-    order: "desc",
-    size: "150",
-  });
+  const [query, setQuery] = React.useState(initialQuery);
   const [total, setTotal] = React.useState(0);
-
-  // Initialize the state, essentially updating it to use the query encoded in
-  // the URL, if any.
-  React.useEffect(function initializeQuery() {
-    const raw = new URLSearchParams(window.location.search).get("q");
-    if (raw === null) {
-      return;
-    }
-    setQuery(api.decodeQuery(raw));
-  }, []);
 
   // When the query change, we want to run the search query and update
   // the cores.
@@ -79,36 +74,41 @@ export default function App() {
     [query]
   );
 
-  function queryHandler(q) {
-    setQuery(q);
-  }
+  const queryHandler = React.useCallback(
+    function queryHandler(q) {
+      setQuery(q);
+    },
+    [setQuery]
+  );
 
-  function deleteCoreHandler() {
-    if (!window.confirm(`are you sure you want to delete this core?`)) {
-      return;
-    }
+  const deleteCoreHandler = React.useCallback(
+    function deleteCoreHandler(core) {
+      if (!window.confirm(`are you sure you want to delete this core?`)) {
+        return;
+      }
 
-    api
-      .deleteCore(core.uid)
-      .then((res) => {
-        if (res.error) {
-          setError(res.error);
-          return;
-        }
-        setCores([...cores].filter((c) => c.uid != core.uid));
-        setTotal(total - 1);
-      })
-      .catch((res) => {
-        setError(err.message);
-      });
-  }
+      api
+        .deleteCore(core.uid)
+        .then((res) => {
+          if (res.error) {
+            setError(res.error);
+            return;
+          }
+          setCores([...cores].filter((c) => c.uid != core.uid));
+          setTotal(total - 1);
+        })
+        .catch((res) => {
+          setError(err.message);
+        });
+    },
+    [setError, cores, setCores, total, setTotal]
+  );
 
-  // Finally, render the component itself. The header and searchbar are
-  // always displayed, and the table gives way for fallback display in
-  // case of error or if the first query didn't execute yet.
+  // Finally, render the component itself. The searchbar is always displayed,
+  // and the table gives way for fallback display in case of error or if the
+  // first query didn't execute yet.
   return (
     <React.Fragment>
-      <Header />
       <Searchbar query={query} onSubmit={queryHandler} />
       {error !== null && (
         <React.Fragment>
@@ -118,7 +118,9 @@ export default function App() {
       )}
       {cores === null && <p>No result yet.</p>}
       {cores !== null && <Table cores={cores} total={total} onDeleteCore={deleteCoreHandler} />}
-      <Footer />
     </React.Fragment>
   );
 }
+
+App.whyDidYouRender = true;
+export default App;

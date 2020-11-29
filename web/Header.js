@@ -3,7 +3,7 @@ import styles from "./Header.scss";
 
 // Header is a separate component so it can be shared in the AppBoundary and in
 // the App itself.
-export default function Header() {
+function Header() {
   return (
     <header className={styles.Header}>
       <h1>
@@ -12,3 +12,6 @@ export default function Header() {
     </header>
   );
 }
+
+Header.whyDidYouRender = true;
+export default React.memo(Header);

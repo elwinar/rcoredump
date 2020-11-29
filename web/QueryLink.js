@@ -5,7 +5,7 @@ import api from "./api.js";
 // standard HTML link with a valid href, but the navigation is intercepted to
 // be handled by the app. This allow the user to copy-paste the link via his
 // navigator contextual menu, while making internal navigation easy.
-export default function QueryLink({ children, query, onClick }) {
+function QueryLink({ children, query, onClick }) {
   return (
     <a
       href={`/?q=${api.encodeQuery({ q: query })}`}
@@ -18,3 +18,6 @@ export default function QueryLink({ children, query, onClick }) {
     </a>
   );
 }
+
+QueryLink.whyDidYouRender = true;
+export default React.memo(QueryLink);

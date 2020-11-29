@@ -4,7 +4,7 @@ import { boolattr } from "./utils.js";
 
 // Searchbar is one of the top-level components, tasked with handling the
 // interface to edit the search query.
-export default function Searchbar({ query, onSubmit }) {
+function Searchbar({ query, onSubmit }) {
   // The local payload is initialized from the current query, and will hold
   // dirty values until the user submit the form.
   const [payload, setPayload] = React.useState(query);
@@ -127,3 +127,6 @@ export default function Searchbar({ query, onSubmit }) {
     </React.Fragment>
   );
 }
+
+Searchbar.whyDidYouRender = true;
+export default React.memo(Searchbar);

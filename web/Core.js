@@ -5,7 +5,7 @@ import api from "./api.js";
 import QueryLink from "./QueryLink.js";
 
 // Core is a view of a core's details.
-export default function Core({ core, onDelete }) {
+function Core({ core, onDelete }) {
   // We use a ref so we can have a simpler copy routine.
   const downloadAndDebug = React.useRef();
   function copy() {
@@ -32,7 +32,7 @@ export default function Core({ core, onDelete }) {
           </a>
         </li>
         <li>
-          <button onClick={onDelete}>delete core</button>
+          <button onClick={() => onDelete(core)}>delete core</button>
         </li>
       </ul>
       <h2>executable</h2>
@@ -83,3 +83,6 @@ export default function Core({ core, onDelete }) {
     </article>
   );
 }
+
+Core.whyDidYouRender = true;
+export default React.memo(Core);

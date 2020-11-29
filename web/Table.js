@@ -4,7 +4,7 @@ import Core from "./Core.js";
 import { boolattr, formatDate } from "./utils.js";
 
 // Table is the top-level component tasked with displaying the cores.
-export default function Table({ cores, total }) {
+function Table({ cores, total, onDeleteCore }) {
   // page and selected are used to control what gets displayed on screen,
   // either by limiting the number of elements or displaying the details
   // of a result.
@@ -88,7 +88,7 @@ export default function Table({ cores, total }) {
                 {selected == x.uid && (
                   <tr className={styles.Detail}>
                     <td colSpan="5">
-                      <Core core={x} />
+                      <Core core={x} onDelete={onDeleteCore} />
                     </td>
                   </tr>
                 )}
@@ -100,3 +100,6 @@ export default function Table({ cores, total }) {
     </React.Fragment>
   );
 }
+
+Table.whyDidYouRender = true;
+export default React.memo(Table);

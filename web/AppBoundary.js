@@ -1,6 +1,4 @@
 import React from "react";
-import Header from "./Header.js";
-import Footer from "./Footer.js";
 
 // AppBoundary is the error-catching component for the whole app.
 export default class AppBoundary extends React.Component {
@@ -22,7 +20,6 @@ export default class AppBoundary extends React.Component {
     if (this.state.error !== false) {
       return (
         <React.Fragment>
-          <Header />
           <h2>something went wrong</h2>
           <p>{this.state.error.message}</p>
           <pre>{this.state.info.componentStack.slice(1)}</pre>
@@ -47,7 +44,6 @@ export default class AppBoundary extends React.Component {
               go back
             </a>
           </p>
-          <Footer />
         </React.Fragment>
       );
     }
